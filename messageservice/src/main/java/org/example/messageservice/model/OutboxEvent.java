@@ -1,4 +1,4 @@
-package org.example.orderservice.model;
+package org.example.messageservice.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;

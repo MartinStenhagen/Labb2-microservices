@@ -9,7 +9,7 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>org.example</groupId>
-    <artifactId>orderservice</artifactId>
+    <artifactId>messageservice</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>orderservice</name>
     <description>Order Service with Outbox Pattern</description>

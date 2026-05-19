@@ -1,6 +1,6 @@
-package org.example.orderservice.repository;
+package org.example.messageservice.repository;
 
-import org.example.orderservice.model.OutboxEvent;
+import org.example.messageservice.model.OutboxEvent;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 

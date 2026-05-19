@@ -1,4 +1,4 @@
-package org.example.orderservice.controller;
+package org.example.messageservice.controller;
 
 import org.springframework.stereotype.Component;
 

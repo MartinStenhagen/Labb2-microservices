@@ -1,9 +1,9 @@
-package org.example.orderservice.service;
+package org.example.messageservice.service;
 
-import org.example.orderservice.config.RabbitConfig;
-import org.example.event.OrderPlacedEvent;
-import org.example.orderservice.model.OutboxEvent;
-import org.example.orderservice.repository.OutboxRepository;
+import org.example.event.MessagePublishedEvent;
+import org.example.messageservice.config.RabbitConfig;
+import org.example.messageservice.model.OutboxEvent;
+import org.example.messageservice.repository.OutboxRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
@@ -18,10 +18,10 @@ public class OutboxRelay {
     private static final Logger logger = LoggerFactory.getLogger(OutboxRelay.class);
     private final OutboxRepository outboxRepository;
     private final RabbitTemplate rabbitTemplate;
-    private final org.example.orderservice.controller.ChaosContext chaosContext;
+    private final org.example.messageservice.controller.ChaosContext chaosContext;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
-    public OutboxRelay(OutboxRepository outboxRepository, RabbitTemplate rabbitTemplate, org.example.orderservice.controller.ChaosContext chaosContext, com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
+    public OutboxRelay(OutboxRepository outboxRepository, RabbitTemplate rabbitTemplate, org.example.messageservice.controller.ChaosContext chaosContext, com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
         this.outboxRepository = outboxRepository;
         this.rabbitTemplate = rabbitTemplate;
         this.chaosContext = chaosContext;
@@ -55,7 +55,7 @@ public class OutboxRelay {
                 String payload = event.getPayload();
                 var scenario = chaosContext.getCurrentScenario();
                 
-                if (scenario == org.example.orderservice.controller.ChaosScenario.DATA_CORRUPTION) {
+                if (scenario == org.example.messageservice.controller.ChaosScenario.DATA_CORRUPTION) {
                     payload = "{\"corrupted\": \"true\", \"quantity\": -99}";
                     logger.warn("Chaos: Corrupting payload for event {}", event.getEventId());
                 }
@@ -65,9 +65,9 @@ public class OutboxRelay {
                 CorrelationData correlationData = new CorrelationData(event.getId().toString());
                 
                 Object messagePayload = event.getPayload();
-                if (scenario != org.example.orderservice.controller.ChaosScenario.DATA_CORRUPTION) {
+                if (scenario != org.example.messageservice.controller.ChaosScenario.DATA_CORRUPTION) {
                     try {
-                        messagePayload = objectMapper.readValue(event.getPayload(), org.example.event.OrderPlacedEvent.class);
+                        messagePayload = objectMapper.readValue(event.getPayload(), MessagePublishedEvent.class);
                     } catch (Exception e) {
                         logger.error("Failed to parse payload for event {}: {}", event.getEventId(), e.getMessage());
                     }
@@ -84,7 +84,7 @@ public class OutboxRelay {
                     correlationData
                 );
 
-                if (scenario == org.example.orderservice.controller.ChaosScenario.DUPLICATE_MESSAGE) {
+                if (scenario == org.example.messageservice.controller.ChaosScenario.DUPLICATE_MESSAGE) {
                     logger.warn("Chaos: Sending duplicate message for event {}", event.getEventId());
                     rabbitTemplate.convertAndSend(
                         RabbitConfig.EXCHANGE_NAME,
