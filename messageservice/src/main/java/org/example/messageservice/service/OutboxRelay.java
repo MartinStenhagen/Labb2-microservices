@@ -79,7 +79,7 @@ public class OutboxRelay {
 
                 rabbitTemplate.convertAndSend(
                     RabbitConfig.EXCHANGE_NAME,
-                    "order.placed",
+                    "message.published",
                     messagePayload,
                     correlationData
                 );
@@ -88,7 +88,7 @@ public class OutboxRelay {
                     logger.warn("Chaos: Sending duplicate message for event {}", event.getEventId());
                     rabbitTemplate.convertAndSend(
                         RabbitConfig.EXCHANGE_NAME,
-                        "order.placed",
+                        "message.duplicate",
                         messagePayload,
                         correlationData
                     );

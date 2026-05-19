@@ -7,7 +7,8 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class RabbitConfig {
-    public static final String EXCHANGE_NAME = "order.exchange";
+    public static final String EXCHANGE_NAME = "chat.exchange";
+    public static final String ROUTING_KEY = "message.published";
     public static final String STOCK_FAILED_QUEUE = "stock.failed.queue";
     public static final String STOCK_FAILED_EXCHANGE = "stock.failed.exchange";
 
