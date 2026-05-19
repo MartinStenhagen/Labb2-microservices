@@ -13,6 +13,7 @@
         <module name="service2" />
         <module name="service1" />
         <module name="service3" />
+        <module name="botservice" />
         <module name="messageservice" />
       </profile>
     </annotationProcessing>
@@ -24,6 +25,7 @@
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="authservice" options="-parameters" />
       <module name="bff" options="-parameters" />
+      <module name="botservice" options="-parameters" />
       <module name="demo" options="-parameters" />
       <module name="messageservice" options="-parameters" />
       <module name="service1" options="-parameters" />

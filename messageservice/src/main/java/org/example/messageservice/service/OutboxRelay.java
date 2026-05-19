@@ -18,13 +18,11 @@ public class OutboxRelay {
     private static final Logger logger = LoggerFactory.getLogger(OutboxRelay.class);
     private final OutboxRepository outboxRepository;
     private final RabbitTemplate rabbitTemplate;
-    private final org.example.messageservice.controller.ChaosContext chaosContext;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
-    public OutboxRelay(OutboxRepository outboxRepository, RabbitTemplate rabbitTemplate, org.example.messageservice.controller.ChaosContext chaosContext, com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
+    public OutboxRelay(OutboxRepository outboxRepository, RabbitTemplate rabbitTemplate, com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
         this.outboxRepository = outboxRepository;
         this.rabbitTemplate = rabbitTemplate;
-        this.chaosContext = chaosContext;
         this.objectMapper = objectMapper;
         
         this.rabbitTemplate.setConfirmCallback((correlationData, ack, cause) -> {
@@ -52,47 +50,17 @@ public class OutboxRelay {
         List<OutboxEvent> pendingEvents = outboxRepository.findByStatus(OutboxEvent.OutboxStatus.PENDING);
         for (OutboxEvent event : pendingEvents) {
             try {
-                String payload = event.getPayload();
-                var scenario = chaosContext.getCurrentScenario();
-                
-                if (scenario == org.example.messageservice.controller.ChaosScenario.DATA_CORRUPTION) {
-                    payload = "{\"corrupted\": \"true\", \"quantity\": -99}";
-                    logger.warn("Chaos: Corrupting payload for event {}", event.getEventId());
-                }
-
                 logger.info("Outbox Recovery: Relaying pending event {} (Aggregate ID: {})", event.getEventId(), event.getAggregateId());
-                logger.debug("Relaying event: {} with scenario {}", event.getEventId(), scenario);
+                logger.debug("Relaying event: {}", event.getEventId());
                 CorrelationData correlationData = new CorrelationData(event.getId().toString());
-                
-                Object messagePayload = event.getPayload();
-                if (scenario != org.example.messageservice.controller.ChaosScenario.DATA_CORRUPTION) {
-                    try {
-                        messagePayload = objectMapper.readValue(event.getPayload(), MessagePublishedEvent.class);
-                    } catch (Exception e) {
-                        logger.error("Failed to parse payload for event {}: {}", event.getEventId(), e.getMessage());
-                    }
-                } else {
-                    payload = "{\"corrupted\": \"true\", \"quantity\": -99}";
-                    messagePayload = payload;
-                    logger.warn("Chaos: Corrupting payload for event {}", event.getEventId());
-                }
+                MessagePublishedEvent messagePayload = objectMapper.readValue(event.getPayload(), MessagePublishedEvent.class);
 
                 rabbitTemplate.convertAndSend(
                     RabbitConfig.EXCHANGE_NAME,
-                    "message.published",
+                    RabbitConfig.ROUTING_KEY,
                     messagePayload,
                     correlationData
                 );
-
-                if (scenario == org.example.messageservice.controller.ChaosScenario.DUPLICATE_MESSAGE) {
-                    logger.warn("Chaos: Sending duplicate message for event {}", event.getEventId());
-                    rabbitTemplate.convertAndSend(
-                        RabbitConfig.EXCHANGE_NAME,
-                        "message.duplicate",
-                        messagePayload,
-                        correlationData
-                    );
-                }
             } catch (Exception e) {
                 logger.error("Error relaying event {}: {}", event.getId(), e.getMessage());
             }
