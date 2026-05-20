@@ -1,9 +1,11 @@
 package org.example.bff.controller;
 
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -42,5 +44,22 @@ public class UserProxyController {
                 .uri("/users/{id}", id)
                 .retrieve()
                 .body(Object.class);
+    }
+
+    @PutMapping("/{id}")
+    public Object updateUser(@PathVariable Long id, @RequestBody Object request) {
+        return userRestClient.put()
+                .uri("/users/{id}", id)
+                .body(request)
+                .retrieve()
+                .body(Object.class);
+    }
+
+    @DeleteMapping("/{id}")
+    public void deleteUser(@PathVariable Long id) {
+        userRestClient.delete()
+                .uri("/users/{id}", id)
+                .retrieve()
+                .toBodilessEntity();
     }
 }

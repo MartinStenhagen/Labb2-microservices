@@ -1,12 +1,16 @@
 package org.example.userservice.service;
 
 import org.example.userservice.dto.CreateUserRequest;
+import org.example.userservice.dto.UpdateUserRequest;
 import org.example.userservice.dto.UserResponse;
 import org.example.userservice.model.AppUser;
 import org.example.userservice.repository.UserRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+
+import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @Service
 public class UserService {
@@ -24,10 +28,7 @@ public class UserService {
     }
 
     public UserResponse getUser(Long id) {
-        AppUser user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        return toResponse(user);
+        return toResponse(findUser(id));
     }
 
     public List<UserResponse> getUsers() {
@@ -35,6 +36,24 @@ public class UserService {
                 .stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    public UserResponse updateUser(Long id, UpdateUserRequest request) {
+        AppUser user = findUser(id);
+        user.setUsername(request.username());
+        user.setDisplayName(request.displayName());
+
+        return toResponse(userRepository.save(user));
+    }
+
+    public void deleteUser(Long id) {
+        AppUser user = findUser(id);
+        userRepository.delete(user);
+    }
+
+    private AppUser findUser(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "User not found"));
     }
 
     private UserResponse toResponse(AppUser user) {
