@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Labb 2 Chat</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<main>
+    <section id="login-view" class="login-shell">
+        <div class="login-panel">
+            <header>
+                <h1>Labb 2 Chat</h1>
+            </header>
+
+            <form id="login-form" class="stack">
+                <label for="login-username">Användarnamn</label>
+                <input id="login-username" value="martin" autocomplete="username">
+
+                <label for="login-password">Lösenord</label>
+                <input id="login-password" type="password" value="password" autocomplete="current-password">
+
+                <button type="submit">Logga in</button>
+            </form>
+
+            <hr>
+
+            <form id="user-form" class="stack">
+                <h2>Skapa användare</h2>
+
+                <label for="new-username">Användarnamn</label>
+                <input id="new-username">
+
+                <label for="display-name">Visningsnamn</label>
+                <input id="display-name">
+
+                <button type="submit">Skapa</button>
+            </form>
+
+            <p id="notice" class="notice"></p>
+        </div>
+    </section>
+
+    <section id="chat-view" class="app-shell hidden">
+        <section class="workspace">
+            <header class="topbar">
+                <div>
+                    <h1>Labb 2 Chat</h1>
+                    <p id="session-status"></p>
+                </div>
+                <div class="topbar-actions">
+                    <button id="refresh-button" type="button" title="Uppdatera meddelanden">↻</button>
+                    <button id="logout-button" type="button">Logga ut</button>
+                </div>
+            </header>
+
+            <section id="messages" class="messages" aria-live="polite"></section>
+
+            <form id="message-form" class="composer">
+                <label for="message-input">Meddelande</label>
+                <textarea id="message-input" rows="3" placeholder="Skriv ett meddelande"></textarea>
+                <button type="submit">Skicka</button>
+            </form>
+        </section>
+    </section>
+</main>
+
+<script src="/app.js"></script>
+</body>
+</html>
