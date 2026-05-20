@@ -32,10 +32,12 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/messages_db
       SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_GRPC_CLIENT_DEFAULT_CHANNEL_ADDRESS: userservice:9093
   userservice:
     build: ./userservice
     ports:
       - "8083:8083"
+      - "9093:9093"
     depends_on:
       - mysql
     environment:

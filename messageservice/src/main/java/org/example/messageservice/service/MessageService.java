@@ -3,6 +3,7 @@ package org.example.messageservice.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.event.MessagePublishedEvent;
+import org.example.messageservice.client.UserProfileClient;
 import org.example.messageservice.model.ChatMessage;
 import org.example.messageservice.model.OutboxEvent;
 import org.example.messageservice.repository.MessageRepository;
@@ -19,19 +20,23 @@ public class MessageService {
     private final MessageRepository messageRepository;
     private final OutboxRepository outboxRepository;
     private final ObjectMapper objectMapper;
+    private final UserProfileClient userProfileClient;
 
     public MessageService(
             MessageRepository messageRepository,
             OutboxRepository outboxRepository,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            UserProfileClient userProfileClient
     ) {
         this.messageRepository = messageRepository;
         this.outboxRepository = outboxRepository;
         this.objectMapper = objectMapper;
+        this.userProfileClient = userProfileClient;
     }
 
     @Transactional
     public ChatMessage publishMessage(ChatMessage message) throws JsonProcessingException {
+        enrichSenderProfile(message);
         ChatMessage savedMessage = messageRepository.save(message);
 
         MessagePublishedEvent event = new MessagePublishedEvent(
@@ -56,6 +61,15 @@ public class MessageService {
         outboxRepository.save(outboxEvent);
 
         return savedMessage;
+    }
+
+    private void enrichSenderProfile(ChatMessage message) {
+        if (message.getSenderUserId() == null) {
+            throw new IllegalArgumentException("senderUserId is required");
+        }
+
+        var userProfile = userProfileClient.getUserProfile(message.getSenderUserId());
+        message.setSenderUsername(userProfile.username());
     }
 
     public ChatMessage getMessage(Long id) {
