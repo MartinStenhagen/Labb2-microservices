@@ -32,12 +32,11 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/messages_db
       SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_GRPC_CLIENT_DEFAULT_CHANNEL_ADDRESS: userservice:9093
+      SPRING_GRPC_CLIENT_DEFAULT_CHANNEL_ADDRESS: userservice:8083
   userservice:
     build: ./userservice
     ports:
       - "8083:8083"
-      - "9093:9093"
     depends_on:
       - mysql
     environment:
@@ -53,6 +52,19 @@ services:
     environment:
       SPRING_RABBITMQ_HOST: rabbitmq
       MESSAGE_SERVICE_URL: http://messageservice:8081
+  bff:
+    build: ./bff
+    ports:
+      - "8080:8080"
+    depends_on:
+      - authservice
+      - userservice
+      - messageservice
+    environment:
+      AUTH_SERVICE_URL: http://authservice:9000
+      USER_SERVICE_URL: http://userservice:8083
+      MESSAGE_SERVICE_URL: http://messageservice:8081
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://authservice:9000/auth/jwks
 
 volumes:
   mysql_data:

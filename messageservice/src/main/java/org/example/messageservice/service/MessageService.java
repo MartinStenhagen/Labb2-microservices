@@ -68,6 +68,10 @@ public class MessageService {
             throw new IllegalArgumentException("senderUserId is required");
         }
 
+        if (message.getSenderUserId() == 0 && "bot".equalsIgnoreCase(message.getSenderUsername())) {
+            return;
+        }
+
         var userProfile = userProfileClient.getUserProfile(message.getSenderUserId());
         message.setSenderUsername(userProfile.username());
     }

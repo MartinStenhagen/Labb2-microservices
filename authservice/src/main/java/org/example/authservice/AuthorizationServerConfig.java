@@ -53,7 +53,7 @@ public class AuthorizationServerConfig {
         return http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/login", "/.well-known/**", "/oauth2/jwks").permitAll()
+                        .requestMatchers("/auth/login", "/auth/jwks", "/.well-known/**", "/oauth2/jwks").permitAll()
                         .anyRequest().authenticated()
                 )
                 .build();
@@ -159,7 +159,7 @@ public class AuthorizationServerConfig {
     }
 
     @Bean
-    public JWKSource<SecurityContext> jwkSource() {
+    public ECKey ecKey() {
         try {
             KeyPairGenerator kpg = KeyPairGenerator.getInstance("EC");
             kpg.initialize(new ECGenParameterSpec("secp256r1")); // P-256
@@ -168,15 +168,19 @@ public class AuthorizationServerConfig {
             ECPublicKey pub = (ECPublicKey) kp.getPublic();
             ECPrivateKey priv = (ECPrivateKey) kp.getPrivate();
 
-            ECKey ecKey = new ECKey.Builder(Curve.P_256, pub)
+            return new ECKey.Builder(Curve.P_256, pub)
                     .privateKey(priv)
                     .keyID(UUID.randomUUID().toString())
                     .build();
-            JWKSet jwkSet = new JWKSet(ecKey);
-            return (jwkSelector, securityContext) -> jwkSelector.select(jwkSet);
 
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    @Bean
+    public JWKSource<SecurityContext> jwkSource(ECKey ecKey) {
+        JWKSet jwkSet = new JWKSet(ecKey);
+        return (jwkSelector, securityContext) -> jwkSelector.select(jwkSet);
     }
 }
