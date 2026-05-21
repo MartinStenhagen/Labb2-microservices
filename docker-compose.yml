@@ -29,6 +29,7 @@ services:
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: root
       USER_SERVICE_URL: http://userservice:8083
+      INTERNAL_API_KEY: labb2-dev-internal-key
       AUTH_ISSUER: http://authservice:9000
       AUTH_OAUTH_CLIENT_ID: gateway-client
       AUTH_OAUTH_CLIENT_SECRET: secret
@@ -50,6 +51,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: root
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_GRPC_CLIENT_DEFAULT_CHANNEL_ADDRESS: userservice:8083
+      INTERNAL_API_KEY: labb2-dev-internal-key
       BOT_USER_ID: 0
       BOT_USERNAME: bot
   userservice:
@@ -62,6 +64,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/users_db?createDatabaseIfNotExist=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: root
+      INTERNAL_API_KEY: labb2-dev-internal-key
   botservice:
     build: ./botservice
     ports:
@@ -72,6 +75,7 @@ services:
     environment:
       SPRING_RABBITMQ_HOST: rabbitmq
       MESSAGE_SERVICE_URL: http://messageservice:8081
+      INTERNAL_API_KEY: labb2-dev-internal-key
       BOT_USER_ID: 0
       BOT_USERNAME: bot
   bff:
@@ -86,6 +90,7 @@ services:
       AUTH_SERVICE_URL: http://authservice:9000
       USER_SERVICE_URL: http://userservice:8083
       MESSAGE_SERVICE_URL: http://messageservice:8081
+      INTERNAL_API_KEY: labb2-dev-internal-key
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://authservice:9000/auth/jwks
 
 volumes:

@@ -8,10 +8,16 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class RestClientConfig {
 
+    private static final String INTERNAL_API_KEY_HEADER = "X-Internal-Api-Key";
+
     @Bean
-    RestClient userRestClient(@Value("${user.service.url}") String userServiceUrl) {
+    RestClient userRestClient(
+            @Value("${user.service.url}") String userServiceUrl,
+            @Value("${internal.api-key}") String internalApiKey
+    ) {
         return RestClient.builder()
                 .baseUrl(userServiceUrl)
+                .defaultHeader(INTERNAL_API_KEY_HEADER, internalApiKey)
                 .build();
     }
 }
