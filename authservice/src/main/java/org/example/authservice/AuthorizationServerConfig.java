@@ -5,6 +5,10 @@ import com.nimbusds.jose.jwk.ECKey;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.beans.factory.annotation.Value;
@@ -107,23 +111,48 @@ public class AuthorizationServerConfig {
     }
 
     @Bean
-    public ECKey ecKey() {
+    public ECKey ecKey(
+            @Value("${auth.signing-key-jwk:}") String signingKeyJwk,
+            @Value("${auth.signing-key-path:.local/authservice-ec-key.json}") String signingKeyPath
+    ) {
         try {
-            KeyPairGenerator kpg = KeyPairGenerator.getInstance("EC");
-            kpg.initialize(new ECGenParameterSpec("secp256r1")); // P-256
+            if (signingKeyJwk != null && !signingKeyJwk.isBlank()) {
+                return ECKey.parse(signingKeyJwk);
+            }
 
-            KeyPair kp = kpg.generateKeyPair();
-            ECPublicKey pub = (ECPublicKey) kp.getPublic();
-            ECPrivateKey priv = (ECPrivateKey) kp.getPrivate();
+            Path keyPath = Path.of(signingKeyPath);
+            if (Files.exists(keyPath)) {
+                return ECKey.parse(Files.readString(keyPath, StandardCharsets.UTF_8));
+            }
 
-            return new ECKey.Builder(Curve.P_256, pub)
-                    .privateKey(priv)
-                    .keyID(UUID.randomUUID().toString())
-                    .build();
-
+            ECKey generatedKey = generateEcKey();
+            writeKey(keyPath, generatedKey);
+            return generatedKey;
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    private ECKey generateEcKey() throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("EC");
+        kpg.initialize(new ECGenParameterSpec("secp256r1")); // P-256
+
+        KeyPair kp = kpg.generateKeyPair();
+        ECPublicKey pub = (ECPublicKey) kp.getPublic();
+        ECPrivateKey priv = (ECPrivateKey) kp.getPrivate();
+
+        return new ECKey.Builder(Curve.P_256, pub)
+                .privateKey(priv)
+                .keyID(UUID.randomUUID().toString())
+                .build();
+    }
+
+    private void writeKey(Path keyPath, ECKey generatedKey) throws IOException {
+        Path parent = keyPath.getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+        Files.writeString(keyPath, generatedKey.toJSONString(), StandardCharsets.UTF_8);
     }
 
     @Bean

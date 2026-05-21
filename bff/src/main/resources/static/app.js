@@ -2,6 +2,8 @@ let accessToken = null;
 let currentUsername = null;
 let refreshTimer = null;
 
+const SESSION_STORAGE_KEY = "labb2-chat-session";
+
 const loginView = document.getElementById("login-view");
 const chatView = document.getElementById("chat-view");
 const sessionStatus = document.getElementById("session-status");
@@ -76,15 +78,13 @@ async function sendMessage() {
 document.getElementById("refresh-button").addEventListener("click", loadMessages);
 
 document.getElementById("logout-button").addEventListener("click", () => {
-    stopAutoRefresh();
-    accessToken = null;
-    currentUsername = null;
-    messages.replaceChildren();
-    messageInput.value = "";
-    sessionStatus.textContent = "";
-    chatView.classList.add("hidden");
-    loginView.classList.remove("hidden");
+    clearSession();
     showNotice("Du är utloggad.");
+});
+
+restoreSession().catch((error) => {
+    clearSession();
+    showNotice(error.message);
 });
 
 async function loadMessages() {
@@ -119,6 +119,10 @@ async function request(path, options) {
 
     if (!response.ok) {
         const text = await response.text();
+        if (options.auth && response.status === 401) {
+            clearSession();
+            showNotice("Sessionen har gått ut. Logga in igen.");
+        }
         throw new Error(text || `Request failed with status ${response.status}`);
     }
 
@@ -128,12 +132,83 @@ async function request(path, options) {
 async function startSession(response, message) {
     accessToken = response.accessToken;
     currentUsername = response.username;
+    saveSession(response);
     sessionStatus.textContent = `Inloggad som ${response.username}`;
     loginView.classList.add("hidden");
     chatView.classList.remove("hidden");
     showNotice(message);
     await loadMessages();
     startAutoRefresh();
+}
+
+async function restoreSession() {
+    const savedSession = readSavedSession();
+    if (!savedSession) {
+        return;
+    }
+
+    accessToken = savedSession.accessToken;
+    currentUsername = savedSession.username;
+    sessionStatus.textContent = `Inloggad som ${savedSession.username}`;
+    loginView.classList.add("hidden");
+    chatView.classList.remove("hidden");
+    showNotice("Du är fortfarande inloggad.");
+
+    try {
+        await loadMessages();
+        startAutoRefresh();
+    } catch (error) {
+        clearSession();
+        showNotice("Sessionen kunde inte återställas. Logga in igen.");
+    }
+}
+
+function saveSession(response) {
+    const session = {
+        accessToken: response.accessToken,
+        username: response.username,
+        expiresAt: response.expiresAt
+    };
+
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+}
+
+function readSavedSession() {
+    const rawSession = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!rawSession) {
+        return null;
+    }
+
+    try {
+        const session = JSON.parse(rawSession);
+        if (!session.accessToken || !session.username || !session.expiresAt) {
+            localStorage.removeItem(SESSION_STORAGE_KEY);
+            return null;
+        }
+
+        if (new Date(session.expiresAt).getTime() <= Date.now()) {
+            localStorage.removeItem(SESSION_STORAGE_KEY);
+            showNotice("Sessionen har gått ut. Logga in igen.");
+            return null;
+        }
+
+        return session;
+    } catch {
+        localStorage.removeItem(SESSION_STORAGE_KEY);
+        return null;
+    }
+}
+
+function clearSession() {
+    stopAutoRefresh();
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    accessToken = null;
+    currentUsername = null;
+    messages.replaceChildren();
+    messageInput.value = "";
+    sessionStatus.textContent = "";
+    chatView.classList.add("hidden");
+    loginView.classList.remove("hidden");
 }
 
 function renderMessages(items) {

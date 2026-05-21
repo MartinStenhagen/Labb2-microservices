@@ -33,6 +33,9 @@ services:
       AUTH_OAUTH_CLIENT_ID: gateway-client
       AUTH_OAUTH_CLIENT_SECRET: secret
       AUTH_OAUTH_REDIRECT_URI: http://localhost:8080/login/oauth2/code/authservice
+      AUTH_SIGNING_KEY_PATH: /auth-keys/authservice-ec-key.json
+    volumes:
+      - auth_keys:/auth-keys
   messageservice:
     build: ./messageservice
     ports:
@@ -87,3 +90,4 @@ services:
 
 volumes:
   mysql_data:
+  auth_keys:

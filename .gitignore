@@ -17,3 +17,6 @@ Thumbs.db
 # Env/secrets
 .env
 *.env
+.local/
+*.jwk
+*ec-key*.json
