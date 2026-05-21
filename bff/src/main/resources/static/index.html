@@ -16,10 +16,10 @@
 
             <form id="login-form" class="stack">
                 <label for="login-username">Användarnamn</label>
-                <input id="login-username" value="martin" autocomplete="username">
+                <input id="login-username" autocomplete="username">
 
                 <label for="login-password">Lösenord</label>
-                <input id="login-password" type="password" value="password" autocomplete="current-password">
+                <input id="login-password" type="password" autocomplete="current-password">
 
                 <button type="submit">Logga in</button>
             </form>
@@ -35,7 +35,10 @@
                 <label for="display-name">Visningsnamn</label>
                 <input id="display-name">
 
-                <button type="submit">Skapa</button>
+                <label for="new-password">Lösenord</label>
+                <input id="new-password" type="password" autocomplete="new-password">
+
+                <button type="submit">Skapa och logga in</button>
             </form>
 
             <p id="notice" class="notice"></p>

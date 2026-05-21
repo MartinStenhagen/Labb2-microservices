@@ -25,4 +25,13 @@ public class AuthProxyController {
                 .retrieve()
                 .body(Object.class);
     }
+
+    @PostMapping("/register")
+    public Object register(@RequestBody Object request) {
+        return authRestClient.post()
+                .uri("/auth/register")
+                .body(request)
+                .retrieve()
+                .body(Object.class);
+    }
 }

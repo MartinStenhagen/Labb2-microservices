@@ -8,9 +8,6 @@ import com.nimbusds.jose.proc.SecurityContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
@@ -29,7 +26,6 @@ import org.springframework.security.oauth2.server.authorization.settings.Authori
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 
 import java.security.KeyPair;
@@ -48,7 +44,7 @@ public class AuthorizationServerConfig {
         return http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/login", "/auth/jwks", "/.well-known/**", "/oauth2/jwks").permitAll()
+                        .requestMatchers("/auth/login", "/auth/register", "/auth/jwks", "/.well-known/**", "/oauth2/jwks").permitAll()
                         .anyRequest().authenticated()
                 )
                 .build();
@@ -81,24 +77,6 @@ public class AuthorizationServerConfig {
                 .issuer("http://127.0.0.1:9000")
                 .build();
     }
-
-    @Bean
-    public UserDetailsService userDetailsService(PasswordEncoder passwordEncoder) {
-        UserDetails demo = User.builder()
-                .username("demo")
-                .password(passwordEncoder.encode("demo")) // Krypterar "demo" korrekt
-                .roles("USER")
-                .build();
-
-        UserDetails martin = User.builder()
-                .username("martin")
-                .password(passwordEncoder.encode("password"))
-                .roles("USER")
-                .build();
-
-        return new InMemoryUserDetailsManager(demo, martin);
-    }
-
 
     @Bean
     public PasswordEncoder passwordEncoder() {

@@ -1,11 +1,13 @@
 package org.example.authservice;
 
 import jakarta.validation.Valid;
+import org.example.authservice.client.UserServiceClient;
 import org.example.authservice.dto.LoginRequest;
 import org.example.authservice.dto.LoginResponse;
+import org.example.authservice.dto.RegisterRequest;
+import org.example.authservice.model.AuthUser;
+import org.example.authservice.repository.AuthUserRepository;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -21,26 +23,24 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/auth")
 public class LoginController {
 
-    private final UserDetailsService userDetailsService;
+    private final AuthUserRepository authUserRepository;
+    private final UserServiceClient userServiceClient;
     private final PasswordEncoder passwordEncoder;
     private final JwtEncoder jwtEncoder;
-    private final Map<String, Long> userIds = Map.of(
-            "demo", 1L,
-            "martin", 1L
-    );
 
     public LoginController(
-            UserDetailsService userDetailsService,
+            AuthUserRepository authUserRepository,
+            UserServiceClient userServiceClient,
             PasswordEncoder passwordEncoder,
             JwtEncoder jwtEncoder
     ) {
-        this.userDetailsService = userDetailsService;
+        this.authUserRepository = authUserRepository;
+        this.userServiceClient = userServiceClient;
         this.passwordEncoder = passwordEncoder;
         this.jwtEncoder = jwtEncoder;
     }
@@ -48,13 +48,40 @@ public class LoginController {
     @PostMapping("/login")
     @ResponseStatus(HttpStatus.OK)
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
-        UserDetails user = userDetailsService.loadUserByUsername(request.username());
+        AuthUser user = authUserRepository.findByUsername(request.username())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid username or password"));
 
-        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid username or password");
         }
 
-        Long userId = userIds.getOrDefault(user.getUsername(), 1L);
+        return createToken(user);
+    }
+
+    @PostMapping("/register")
+    @ResponseStatus(HttpStatus.CREATED)
+    public LoginResponse register(@Valid @RequestBody RegisterRequest request) {
+        if (authUserRepository.existsByUsername(request.username())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already exists");
+        }
+
+        UserServiceClient.UserResponse userProfile = userServiceClient.createUser(
+                request.username(),
+                request.displayName()
+        );
+
+        AuthUser authUser = new AuthUser(
+                request.username(),
+                passwordEncoder.encode(request.password()),
+                userProfile.id()
+        );
+
+        AuthUser savedUser = authUserRepository.save(authUser);
+
+        return createToken(savedUser);
+    }
+
+    private LoginResponse createToken(AuthUser user) {
         Instant issuedAt = Instant.now();
         Instant expiresAt = issuedAt.plus(1, ChronoUnit.HOURS);
 
@@ -63,7 +90,7 @@ public class LoginController {
                 .issuedAt(issuedAt)
                 .expiresAt(expiresAt)
                 .subject(user.getUsername())
-                .claim("userId", userId)
+                .claim("userId", user.getUserId())
                 .claim("username", user.getUsername())
                 .claim("scope", "chat.read chat.write")
                 .build();
@@ -71,6 +98,6 @@ public class LoginController {
         JwsHeader headers = JwsHeader.with(SignatureAlgorithm.ES256).build();
         String token = jwtEncoder.encode(JwtEncoderParameters.from(headers, claims)).getTokenValue();
 
-        return new LoginResponse(token, "Bearer", userId, user.getUsername(), expiresAt);
+        return new LoginResponse(token, "Bearer", user.getUserId(), user.getUsername(), expiresAt);
     }
 }

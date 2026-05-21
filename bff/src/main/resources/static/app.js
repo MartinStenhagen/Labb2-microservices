@@ -20,14 +20,7 @@ document.getElementById("login-form").addEventListener("submit", async (event) =
         body: { username, password }
     });
 
-    accessToken = response.accessToken;
-    currentUsername = response.username;
-    sessionStatus.textContent = `Inloggad som ${response.username}`;
-    loginView.classList.add("hidden");
-    chatView.classList.remove("hidden");
-    showNotice("Inloggning lyckades.");
-    await loadMessages();
-    startAutoRefresh();
+    await startSession(response, "Inloggning lyckades.");
 });
 
 document.getElementById("user-form").addEventListener("submit", async (event) => {
@@ -35,13 +28,14 @@ document.getElementById("user-form").addEventListener("submit", async (event) =>
 
     const username = document.getElementById("new-username").value.trim();
     const displayName = document.getElementById("display-name").value.trim();
+    const password = document.getElementById("new-password").value;
 
-    await request("/api/users", {
+    const response = await request("/api/register", {
         method: "POST",
-        body: { username, displayName }
+        body: { username, displayName, password }
     });
 
-    showNotice(`Användaren ${username} skapades.`);
+    await startSession(response, `Användaren ${username} skapades.`);
 });
 
 document.getElementById("message-form").addEventListener("submit", async (event) => {
@@ -129,6 +123,17 @@ async function request(path, options) {
     }
 
     return response.json();
+}
+
+async function startSession(response, message) {
+    accessToken = response.accessToken;
+    currentUsername = response.username;
+    sessionStatus.textContent = `Inloggad som ${response.username}`;
+    loginView.classList.add("hidden");
+    chatView.classList.remove("hidden");
+    showNotice(message);
+    await loadMessages();
+    startAutoRefresh();
 }
 
 function renderMessages(items) {

@@ -21,6 +21,14 @@ services:
     build: ./authservice
     ports:
       - "9000:9000"
+    depends_on:
+      - mysql
+      - userservice
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/auth_db?createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      USER_SERVICE_URL: http://userservice:8083
   messageservice:
     build: ./messageservice
     ports:
@@ -30,7 +38,9 @@ services:
       - rabbitmq
       - userservice
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/messages_db
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/messages_db?createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_GRPC_CLIENT_DEFAULT_CHANNEL_ADDRESS: userservice:8083
   userservice:
@@ -40,8 +50,9 @@ services:
     depends_on:
       - mysql
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/users_db
-      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/users_db?createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
   botservice:
     build: ./botservice
     ports:

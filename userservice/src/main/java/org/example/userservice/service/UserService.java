@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
+import static org.springframework.http.HttpStatus.CONFLICT;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @Service
@@ -22,6 +23,10 @@ public class UserService {
     }
 
     public UserResponse createUser(CreateUserRequest request) {
+        if (userRepository.existsByUsername(request.username())) {
+            throw new ResponseStatusException(CONFLICT, "Username already exists");
+        }
+
         AppUser user = new AppUser(request.username(), request.displayName());
         AppUser savedUser = userRepository.save(user);
         return toResponse(savedUser);
