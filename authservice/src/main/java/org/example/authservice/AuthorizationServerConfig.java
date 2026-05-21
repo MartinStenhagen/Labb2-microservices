@@ -7,6 +7,7 @@ import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -51,14 +52,19 @@ public class AuthorizationServerConfig {
     }
 
     @Bean
-    public RegisteredClientRepository registeredClientRepository(PasswordEncoder passwordEncoder) {
+    public RegisteredClientRepository registeredClientRepository(
+            PasswordEncoder passwordEncoder,
+            @Value("${auth.oauth-client-id}") String clientId,
+            @Value("${auth.oauth-client-secret}") String clientSecret,
+            @Value("${auth.oauth-redirect-uri}") String redirectUri
+    ) {
         RegisteredClient client = RegisteredClient.withId(UUID.randomUUID().toString())
-                .clientId("gateway-client")
-                .clientSecret(passwordEncoder.encode("secret"))
+                .clientId(clientId)
+                .clientSecret(passwordEncoder.encode(clientSecret))
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
-                .redirectUri("http://localhost:8080/login/oauth2/code/authservice")
+                .redirectUri(redirectUri)
                 .scopes(scopes -> scopes.addAll(
                         Set.of("user.read", "user.write",
                                 OidcScopes.OPENID,
@@ -72,9 +78,9 @@ public class AuthorizationServerConfig {
     }
 
     @Bean
-    public AuthorizationServerSettings authorizationServerSettings() {
+    public AuthorizationServerSettings authorizationServerSettings(@Value("${auth.issuer}") String issuer) {
         return AuthorizationServerSettings.builder()
-                .issuer("http://127.0.0.1:9000")
+                .issuer(issuer)
                 .build();
     }
 

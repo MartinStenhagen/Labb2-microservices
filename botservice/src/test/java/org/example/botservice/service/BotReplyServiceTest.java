@@ -21,7 +21,7 @@ class BotReplyServiceTest {
     void replyIfMentionedPostsBotMessageToMessageService() {
         RestClient.Builder builder = RestClient.builder().baseUrl("http://messageservice");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        BotReplyService botReplyService = new BotReplyService(builder.build());
+        BotReplyService botReplyService = new BotReplyService(builder.build(), 0L, "bot");
 
         server.expect(requestTo("http://messageservice/messages"))
                 .andExpect(method(HttpMethod.POST))
@@ -39,7 +39,7 @@ class BotReplyServiceTest {
     void replyIfMentionedIgnoresMessagesWithoutBotMention() {
         RestClient.Builder builder = RestClient.builder().baseUrl("http://messageservice");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        BotReplyService botReplyService = new BotReplyService(builder.build());
+        BotReplyService botReplyService = new BotReplyService(builder.build(), 0L, "bot");
 
         botReplyService.replyIfMentioned(event("martin", "Hej alla"));
 
@@ -50,7 +50,7 @@ class BotReplyServiceTest {
     void replyIfMentionedIgnoresBotMessagesToAvoidLoop() {
         RestClient.Builder builder = RestClient.builder().baseUrl("http://messageservice");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        BotReplyService botReplyService = new BotReplyService(builder.build());
+        BotReplyService botReplyService = new BotReplyService(builder.build(), 0L, "bot");
 
         botReplyService.replyIfMentioned(event("bot", "Hej @bot"));
 

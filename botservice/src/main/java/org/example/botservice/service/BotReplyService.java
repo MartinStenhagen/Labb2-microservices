@@ -4,23 +4,30 @@ import org.example.botservice.dto.CreateBotMessageRequest;
 import org.example.event.MessagePublishedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
 @Service
 public class BotReplyService {
     private static final Logger logger = LoggerFactory.getLogger(BotReplyService.class);
-    private static final long BOT_USER_ID = 0L;
-    private static final String BOT_USERNAME = "bot";
 
     private final RestClient messageServiceRestClient;
+    private final long botUserId;
+    private final String botUsername;
 
-    public BotReplyService(RestClient messageServiceRestClient) {
+    public BotReplyService(
+            RestClient messageServiceRestClient,
+            @Value("${bot.user-id}") long botUserId,
+            @Value("${bot.username}") String botUsername
+    ) {
         this.messageServiceRestClient = messageServiceRestClient;
+        this.botUserId = botUserId;
+        this.botUsername = botUsername;
     }
 
     public void replyIfMentioned(MessagePublishedEvent event) {
-        if (BOT_USERNAME.equalsIgnoreCase(event.senderUsername())) {
+        if (botUsername.equalsIgnoreCase(event.senderUsername())) {
             logger.debug("Ignoring bot message {} to avoid reply loop", event.messageId());
             return;
         }
@@ -33,8 +40,8 @@ public class BotReplyService {
         String reply = "Bot reply: I saw your message, " + event.senderUsername() + ".";
 
         CreateBotMessageRequest request = new CreateBotMessageRequest(
-                BOT_USER_ID,
-                BOT_USERNAME,
+                botUserId,
+                botUsername,
                 reply
         );
 

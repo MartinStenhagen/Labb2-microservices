@@ -8,10 +8,10 @@ import org.example.messageservice.model.ChatMessage;
 import org.example.messageservice.model.OutboxEvent;
 import org.example.messageservice.repository.MessageRepository;
 import org.example.messageservice.repository.OutboxRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -40,8 +40,19 @@ class MessageServiceTest {
     @Spy
     private ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
-    @InjectMocks
     private MessageService messageService;
+
+    @BeforeEach
+    void setUp() {
+        messageService = new MessageService(
+                messageRepository,
+                outboxRepository,
+                objectMapper,
+                userProfileClient,
+                0L,
+                "bot"
+        );
+    }
 
     @Test
     void publishMessageEnrichesSenderAndCreatesOutboxEvent() throws Exception {

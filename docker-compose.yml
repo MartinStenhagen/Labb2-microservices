@@ -29,6 +29,10 @@ services:
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: root
       USER_SERVICE_URL: http://userservice:8083
+      AUTH_ISSUER: http://authservice:9000
+      AUTH_OAUTH_CLIENT_ID: gateway-client
+      AUTH_OAUTH_CLIENT_SECRET: secret
+      AUTH_OAUTH_REDIRECT_URI: http://localhost:8080/login/oauth2/code/authservice
   messageservice:
     build: ./messageservice
     ports:
@@ -43,6 +47,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: root
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_GRPC_CLIENT_DEFAULT_CHANNEL_ADDRESS: userservice:8083
+      BOT_USER_ID: 0
+      BOT_USERNAME: bot
   userservice:
     build: ./userservice
     ports:
@@ -63,6 +69,8 @@ services:
     environment:
       SPRING_RABBITMQ_HOST: rabbitmq
       MESSAGE_SERVICE_URL: http://messageservice:8081
+      BOT_USER_ID: 0
+      BOT_USERNAME: bot
   bff:
     build: ./bff
     ports:

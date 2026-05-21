@@ -8,6 +8,7 @@ import org.example.messageservice.model.ChatMessage;
 import org.example.messageservice.model.OutboxEvent;
 import org.example.messageservice.repository.MessageRepository;
 import org.example.messageservice.repository.OutboxRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,17 +22,23 @@ public class MessageService {
     private final OutboxRepository outboxRepository;
     private final ObjectMapper objectMapper;
     private final UserProfileClient userProfileClient;
+    private final Long botUserId;
+    private final String botUsername;
 
     public MessageService(
             MessageRepository messageRepository,
             OutboxRepository outboxRepository,
             ObjectMapper objectMapper,
-            UserProfileClient userProfileClient
+            UserProfileClient userProfileClient,
+            @Value("${bot.user-id}") Long botUserId,
+            @Value("${bot.username}") String botUsername
     ) {
         this.messageRepository = messageRepository;
         this.outboxRepository = outboxRepository;
         this.objectMapper = objectMapper;
         this.userProfileClient = userProfileClient;
+        this.botUserId = botUserId;
+        this.botUsername = botUsername;
     }
 
     @Transactional
@@ -68,7 +75,7 @@ public class MessageService {
             throw new IllegalArgumentException("senderUserId is required");
         }
 
-        if (message.getSenderUserId() == 0 && "bot".equalsIgnoreCase(message.getSenderUsername())) {
+        if (botUserId.equals(message.getSenderUserId()) && botUsername.equalsIgnoreCase(message.getSenderUsername())) {
             return;
         }
 

@@ -7,6 +7,7 @@ import org.example.authservice.dto.LoginResponse;
 import org.example.authservice.dto.RegisterRequest;
 import org.example.authservice.model.AuthUser;
 import org.example.authservice.repository.AuthUserRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
@@ -32,17 +33,20 @@ public class LoginController {
     private final UserServiceClient userServiceClient;
     private final PasswordEncoder passwordEncoder;
     private final JwtEncoder jwtEncoder;
+    private final String issuer;
 
     public LoginController(
             AuthUserRepository authUserRepository,
             UserServiceClient userServiceClient,
             PasswordEncoder passwordEncoder,
-            JwtEncoder jwtEncoder
+            JwtEncoder jwtEncoder,
+            @Value("${auth.issuer}") String issuer
     ) {
         this.authUserRepository = authUserRepository;
         this.userServiceClient = userServiceClient;
         this.passwordEncoder = passwordEncoder;
         this.jwtEncoder = jwtEncoder;
+        this.issuer = issuer;
     }
 
     @PostMapping("/login")
@@ -86,7 +90,7 @@ public class LoginController {
         Instant expiresAt = issuedAt.plus(1, ChronoUnit.HOURS);
 
         JwtClaimsSet claims = JwtClaimsSet.builder()
-                .issuer("http://127.0.0.1:9000")
+                .issuer(issuer)
                 .issuedAt(issuedAt)
                 .expiresAt(expiresAt)
                 .subject(user.getUsername())

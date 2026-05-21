@@ -1,13 +1,14 @@
 package org.example.authservice;
+
 import org.example.authservice.client.UserServiceClient;
 import org.example.authservice.dto.LoginRequest;
 import org.example.authservice.dto.LoginResponse;
 import org.example.authservice.dto.RegisterRequest;
 import org.example.authservice.model.AuthUser;
 import org.example.authservice.repository.AuthUserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -24,7 +25,6 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -45,8 +45,18 @@ class LoginControllerTest {
     @Mock
     private JwtEncoder jwtEncoder;
 
-    @InjectMocks
     private LoginController loginController;
+
+    @BeforeEach
+    void setUp() {
+        loginController = new LoginController(
+                authUserRepository,
+                userServiceClient,
+                passwordEncoder,
+                jwtEncoder,
+                "http://authservice:9000"
+        );
+    }
 
     @Test
     void loginReturnsBearerTokenWithUserIdAndUsername() {
