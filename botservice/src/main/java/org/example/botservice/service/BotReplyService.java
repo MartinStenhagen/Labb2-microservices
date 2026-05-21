@@ -13,15 +13,18 @@ public class BotReplyService {
     private static final Logger logger = LoggerFactory.getLogger(BotReplyService.class);
 
     private final RestClient messageServiceRestClient;
+    private final BotResponseGenerator botResponseGenerator;
     private final long botUserId;
     private final String botUsername;
 
     public BotReplyService(
             RestClient messageServiceRestClient,
+            BotResponseGenerator botResponseGenerator,
             @Value("${bot.user-id}") long botUserId,
             @Value("${bot.username}") String botUsername
     ) {
         this.messageServiceRestClient = messageServiceRestClient;
+        this.botResponseGenerator = botResponseGenerator;
         this.botUserId = botUserId;
         this.botUsername = botUsername;
     }
@@ -37,7 +40,7 @@ public class BotReplyService {
             return;
         }
 
-        String reply = "Bot reply: I saw your message, " + event.senderUsername() + ".";
+        String reply = botResponseGenerator.generateReply(event);
 
         CreateBotMessageRequest request = new CreateBotMessageRequest(
                 botUserId,

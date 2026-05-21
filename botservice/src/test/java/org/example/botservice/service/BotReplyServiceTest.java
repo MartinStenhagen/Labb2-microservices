@@ -21,14 +21,19 @@ class BotReplyServiceTest {
     void replyIfMentionedPostsBotMessageToMessageService() {
         RestClient.Builder builder = RestClient.builder().baseUrl("http://messageservice");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        BotReplyService botReplyService = new BotReplyService(builder.build(), 0L, "bot");
+        BotReplyService botReplyService = new BotReplyService(
+                builder.build(),
+                ignored -> "AI-svar till martin",
+                0L,
+                "bot"
+        );
         UUID eventId = UUID.randomUUID();
 
         server.expect(requestTo("http://messageservice/messages"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(jsonPath("$.senderUserId").value(0))
                 .andExpect(jsonPath("$.senderUsername").value("bot"))
-                .andExpect(jsonPath("$.content").value("Bot reply: I saw your message, martin."))
+                .andExpect(jsonPath("$.content").value("AI-svar till martin"))
                 .andExpect(jsonPath("$.sourceEventId").value(eventId.toString()))
                 .andRespond(withSuccess("", MediaType.APPLICATION_JSON));
 
@@ -41,7 +46,7 @@ class BotReplyServiceTest {
     void replyIfMentionedIgnoresMessagesWithoutBotMention() {
         RestClient.Builder builder = RestClient.builder().baseUrl("http://messageservice");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        BotReplyService botReplyService = new BotReplyService(builder.build(), 0L, "bot");
+        BotReplyService botReplyService = new BotReplyService(builder.build(), ignored -> "ska inte användas", 0L, "bot");
 
         botReplyService.replyIfMentioned(event(UUID.randomUUID(), "martin", "Hej alla"));
 
@@ -52,7 +57,7 @@ class BotReplyServiceTest {
     void replyIfMentionedIgnoresBotMessagesToAvoidLoop() {
         RestClient.Builder builder = RestClient.builder().baseUrl("http://messageservice");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        BotReplyService botReplyService = new BotReplyService(builder.build(), 0L, "bot");
+        BotReplyService botReplyService = new BotReplyService(builder.build(), ignored -> "ska inte användas", 0L, "bot");
 
         botReplyService.replyIfMentioned(event(UUID.randomUUID(), "bot", "Hej @bot"));
 

@@ -78,6 +78,11 @@ services:
       INTERNAL_API_KEY: labb2-dev-internal-key
       BOT_USER_ID: 0
       BOT_USERNAME: bot
+      BOT_AI_ENABLED: ${BOT_AI_ENABLED:-false}
+      BOT_AI_BASE_URL: ${BOT_AI_BASE_URL:-https://openrouter.ai/api/v1}
+      BOT_AI_API_KEY: ${OPENROUTER_API_KEY:-}
+      BOT_AI_MODEL: ${BOT_AI_MODEL:-z-ai/glm-4.5-air:free}
+      BOT_AI_TEMPERATURE: ${BOT_AI_TEMPERATURE:-0.3}
   bff:
     build: ./bff
     ports:
