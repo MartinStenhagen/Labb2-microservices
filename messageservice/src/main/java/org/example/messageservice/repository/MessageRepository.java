@@ -3,4 +3,9 @@ package org.example.messageservice.repository;
 import org.example.messageservice.model.ChatMessage;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface MessageRepository extends JpaRepository<ChatMessage, Long> {}
+import java.util.Optional;
+import java.util.UUID;
+
+public interface MessageRepository extends JpaRepository<ChatMessage, Long> {
+    Optional<ChatMessage> findBySourceEventId(UUID sourceEventId);
+}

@@ -17,6 +17,9 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.Optional;
+import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -107,6 +110,7 @@ class MessageServiceTest {
         message.setSenderUserId(0L);
         message.setSenderUsername("bot");
         message.setContent("Bot reply");
+        message.setSourceEventId(UUID.randomUUID());
 
         when(messageRepository.save(any(ChatMessage.class))).thenAnswer(invocation -> {
             ChatMessage savedMessage = invocation.getArgument(0);
@@ -119,5 +123,32 @@ class MessageServiceTest {
         assertThat(savedMessage.getSenderUsername()).isEqualTo("bot");
         verifyNoInteractions(userProfileClient);
         verify(outboxRepository).save(any(OutboxEvent.class));
+    }
+
+    @Test
+    void publishMessageReturnsExistingMessageForDuplicateSourceEventId() throws Exception {
+        UUID sourceEventId = UUID.randomUUID();
+        ChatMessage existingMessage = new ChatMessage();
+        existingMessage.setSenderUserId(0L);
+        existingMessage.setSenderUsername("bot");
+        existingMessage.setContent("Existing bot reply");
+        existingMessage.setSourceEventId(sourceEventId);
+        ReflectionTestUtils.setField(existingMessage, "id", 123L);
+
+        ChatMessage duplicateMessage = new ChatMessage();
+        duplicateMessage.setSenderUserId(0L);
+        duplicateMessage.setSenderUsername("bot");
+        duplicateMessage.setContent("Duplicate bot reply");
+        duplicateMessage.setSourceEventId(sourceEventId);
+
+        when(messageRepository.findBySourceEventId(sourceEventId)).thenReturn(Optional.of(existingMessage));
+
+        ChatMessage savedMessage = messageService.publishMessage(duplicateMessage);
+
+        assertThat(savedMessage.getId()).isEqualTo(123L);
+        assertThat(savedMessage.getContent()).isEqualTo("Existing bot reply");
+        verify(messageRepository, never()).save(any());
+        verify(outboxRepository, never()).save(any());
+        verifyNoInteractions(userProfileClient);
     }
 }

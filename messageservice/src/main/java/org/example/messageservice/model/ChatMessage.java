@@ -2,6 +2,7 @@ package org.example.messageservice.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "messages")
@@ -17,6 +18,9 @@ public class ChatMessage {
 
     @Column(columnDefinition = "TEXT")
     private String content;
+
+    @Column(unique = true)
+    private UUID sourceEventId;
 
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -53,5 +57,13 @@ public class ChatMessage {
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public UUID getSourceEventId() {
+        return sourceEventId;
+    }
+
+    public void setSourceEventId(UUID sourceEventId) {
+        this.sourceEventId = sourceEventId;
     }
 }

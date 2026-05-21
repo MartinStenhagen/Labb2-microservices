@@ -22,15 +22,17 @@ class BotReplyServiceTest {
         RestClient.Builder builder = RestClient.builder().baseUrl("http://messageservice");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         BotReplyService botReplyService = new BotReplyService(builder.build(), 0L, "bot");
+        UUID eventId = UUID.randomUUID();
 
         server.expect(requestTo("http://messageservice/messages"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(jsonPath("$.senderUserId").value(0))
                 .andExpect(jsonPath("$.senderUsername").value("bot"))
                 .andExpect(jsonPath("$.content").value("Bot reply: I saw your message, martin."))
+                .andExpect(jsonPath("$.sourceEventId").value(eventId.toString()))
                 .andRespond(withSuccess("", MediaType.APPLICATION_JSON));
 
-        botReplyService.replyIfMentioned(event("martin", "Hej @bot"));
+        botReplyService.replyIfMentioned(event(eventId, "martin", "Hej @bot"));
 
         server.verify();
     }
@@ -41,7 +43,7 @@ class BotReplyServiceTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         BotReplyService botReplyService = new BotReplyService(builder.build(), 0L, "bot");
 
-        botReplyService.replyIfMentioned(event("martin", "Hej alla"));
+        botReplyService.replyIfMentioned(event(UUID.randomUUID(), "martin", "Hej alla"));
 
         server.verify();
     }
@@ -52,14 +54,14 @@ class BotReplyServiceTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         BotReplyService botReplyService = new BotReplyService(builder.build(), 0L, "bot");
 
-        botReplyService.replyIfMentioned(event("bot", "Hej @bot"));
+        botReplyService.replyIfMentioned(event(UUID.randomUUID(), "bot", "Hej @bot"));
 
         server.verify();
     }
 
-    private MessagePublishedEvent event(String senderUsername, String content) {
+    private MessagePublishedEvent event(UUID eventId, String senderUsername, String content) {
         return new MessagePublishedEvent(
-                UUID.randomUUID(),
+                eventId,
                 1L,
                 1L,
                 senderUsername,

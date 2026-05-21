@@ -43,6 +43,11 @@ public class MessageService {
 
     @Transactional
     public ChatMessage publishMessage(ChatMessage message) throws JsonProcessingException {
+        ChatMessage existingMessage = findExistingIdempotentMessage(message);
+        if (existingMessage != null) {
+            return existingMessage;
+        }
+
         enrichSenderProfile(message);
         ChatMessage savedMessage = messageRepository.save(message);
 
@@ -68,6 +73,15 @@ public class MessageService {
         outboxRepository.save(outboxEvent);
 
         return savedMessage;
+    }
+
+    private ChatMessage findExistingIdempotentMessage(ChatMessage message) {
+        if (message.getSourceEventId() == null) {
+            return null;
+        }
+
+        return messageRepository.findBySourceEventId(message.getSourceEventId())
+                .orElse(null);
     }
 
     private void enrichSenderProfile(ChatMessage message) {

@@ -42,7 +42,8 @@ public class BotReplyService {
         CreateBotMessageRequest request = new CreateBotMessageRequest(
                 botUserId,
                 botUsername,
-                reply
+                reply,
+                event.eventId()
         );
 
         messageServiceRestClient.post()
