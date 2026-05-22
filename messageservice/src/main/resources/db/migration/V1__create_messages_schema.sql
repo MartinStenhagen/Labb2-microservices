@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS messages (
     id BIGINT NOT NULL AUTO_INCREMENT,
     sender_user_id BIGINT,
     sender_username VARCHAR(255),
+    room VARCHAR(255) NOT NULL DEFAULT 'general',
     content TEXT,
     source_event_id BINARY(16),
     created_at DATETIME(6),
@@ -28,8 +29,28 @@ CREATE TABLE IF NOT EXISTS outbox_events (
 
 SET @sql = IF(
     (SELECT COUNT(*) FROM information_schema.columns
+     WHERE table_schema = DATABASE() AND table_name = 'messages' AND column_name = 'room') = 0,
+    'ALTER TABLE messages ADD COLUMN room VARCHAR(255) NOT NULL DEFAULT ''general''',
+    'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @sql = IF(
+    (SELECT COUNT(*) FROM information_schema.columns
      WHERE table_schema = DATABASE() AND table_name = 'messages' AND column_name = 'source_event_id') = 0,
     'ALTER TABLE messages ADD COLUMN source_event_id BINARY(16)',
+    'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @sql = IF(
+    (SELECT COUNT(*) FROM information_schema.statistics
+     WHERE table_schema = DATABASE() AND table_name = 'messages' AND index_name = 'idx_messages_room_created_at') = 0,
+    'CREATE INDEX idx_messages_room_created_at ON messages (room, created_at)',
     'SELECT 1'
 );
 PREPARE stmt FROM @sql;

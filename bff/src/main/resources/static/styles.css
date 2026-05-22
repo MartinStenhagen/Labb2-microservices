@@ -30,6 +30,7 @@ body {
 
 button,
 input,
+select,
 textarea {
     font: inherit;
 }
@@ -55,6 +56,7 @@ button:hover {
 }
 
 input,
+select,
 textarea {
     width: 100%;
     border: 1px solid var(--border);
@@ -149,6 +151,20 @@ textarea {
 #logout-button:hover {
     border-color: var(--primary);
     color: var(--primary-dark);
+}
+
+.room-picker {
+    align-items: center;
+    color: var(--muted);
+    display: flex;
+    font-size: 0.9rem;
+    font-weight: 700;
+    gap: 0.45rem;
+}
+
+.room-picker select {
+    min-width: 120px;
+    padding: 0.55rem 0.65rem;
 }
 
 .messages {

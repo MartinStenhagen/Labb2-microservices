@@ -8,6 +8,7 @@ public record MessagePublishedEvent(
         Long messageId,
         Long senderUserId,
         String senderUsername,
+        String room,
         String content,
         LocalDateTime publishedAt
 ) {

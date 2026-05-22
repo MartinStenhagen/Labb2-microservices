@@ -1,5 +1,6 @@
 let accessToken = null;
 let currentUsername = null;
+let currentRoom = "general";
 let refreshTimer = null;
 
 const SESSION_STORAGE_KEY = "labb2-chat-session";
@@ -10,6 +11,7 @@ const sessionStatus = document.getElementById("session-status");
 const notice = document.getElementById("notice");
 const messages = document.getElementById("messages");
 const messageInput = document.getElementById("message-input");
+const roomSelect = document.getElementById("room-select");
 
 document.getElementById("login-form").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -64,7 +66,10 @@ async function sendMessage() {
         const createdMessage = await request("/api/messages", {
             method: "POST",
             auth: true,
-            body: { content }
+            body: {
+                content,
+                room: currentRoom
+            }
         });
 
         messageInput.value = "";
@@ -76,6 +81,11 @@ async function sendMessage() {
 }
 
 document.getElementById("refresh-button").addEventListener("click", loadMessages);
+
+roomSelect.addEventListener("change", async () => {
+    currentRoom = roomSelect.value;
+    await loadMessages();
+});
 
 document.getElementById("logout-button").addEventListener("click", () => {
     clearSession();
@@ -92,7 +102,7 @@ async function loadMessages() {
         return;
     }
 
-    const data = await request("/api/messages", {
+    const data = await request(`/api/messages?room=${encodeURIComponent(currentRoom)}`, {
         method: "GET",
         auth: true
     });
@@ -132,6 +142,7 @@ async function request(path, options) {
 async function startSession(response, message) {
     accessToken = response.accessToken;
     currentUsername = response.username;
+    currentRoom = roomSelect.value;
     saveSession(response);
     sessionStatus.textContent = `Inloggad som ${response.username}`;
     loginView.classList.add("hidden");
@@ -149,6 +160,7 @@ async function restoreSession() {
 
     accessToken = savedSession.accessToken;
     currentUsername = savedSession.username;
+    currentRoom = roomSelect.value;
     sessionStatus.textContent = `Inloggad som ${savedSession.username}`;
     loginView.classList.add("hidden");
     chatView.classList.remove("hidden");
@@ -204,6 +216,8 @@ function clearSession() {
     localStorage.removeItem(SESSION_STORAGE_KEY);
     accessToken = null;
     currentUsername = null;
+    currentRoom = "general";
+    roomSelect.value = currentRoom;
     messages.replaceChildren();
     messageInput.value = "";
     sessionStatus.textContent = "";

@@ -84,7 +84,7 @@ public class OpenRouterBotResponseGenerator implements BotResponseGenerator {
 
     private String userPrompt(MessagePublishedEvent event) {
         String username = StringUtils.hasText(event.senderUsername()) ? event.senderUsername() : "okänd användare";
-        return username + " skrev i chatten: " + normalizeMessage(event.content());
+        return username + " skrev i rummet " + event.room() + ": " + normalizeMessage(event.content());
     }
 
     private String normalizeMessage(String content) {

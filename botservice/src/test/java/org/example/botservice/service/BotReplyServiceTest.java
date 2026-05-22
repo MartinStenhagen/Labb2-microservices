@@ -33,6 +33,7 @@ class BotReplyServiceTest {
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(jsonPath("$.senderUserId").value(0))
                 .andExpect(jsonPath("$.senderUsername").value("bot"))
+                .andExpect(jsonPath("$.room").value("support"))
                 .andExpect(jsonPath("$.content").value("AI-svar till martin"))
                 .andExpect(jsonPath("$.sourceEventId").value(eventId.toString()))
                 .andRespond(withSuccess("", MediaType.APPLICATION_JSON));
@@ -70,6 +71,7 @@ class BotReplyServiceTest {
                 1L,
                 1L,
                 senderUsername,
+                "support",
                 content,
                 LocalDateTime.now()
         );

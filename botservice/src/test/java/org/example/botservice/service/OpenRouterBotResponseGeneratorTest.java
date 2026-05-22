@@ -39,7 +39,7 @@ class OpenRouterBotResponseGeneratorTest {
                 .andExpect(jsonPath("$.temperature").value(0.2))
                 .andExpect(jsonPath("$.messages[0].role").value("system"))
                 .andExpect(jsonPath("$.messages[1].role").value("user"))
-                .andExpect(jsonPath("$.messages[1].content").value("martin skrev i chatten: Hej, hjälp mig"))
+                .andExpect(jsonPath("$.messages[1].content").value("martin skrev i rummet support: Hej, hjälp mig"))
                 .andRespond(withSuccess("""
                         {
                           "choices": [
@@ -83,6 +83,7 @@ class OpenRouterBotResponseGeneratorTest {
                 1L,
                 1L,
                 "martin",
+                "support",
                 content,
                 LocalDateTime.now()
         );

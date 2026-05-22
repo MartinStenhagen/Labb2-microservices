@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClient;
 
@@ -31,6 +32,7 @@ public class MessageProxyController {
         Number userId = jwt.getClaim("userId");
         MessageServiceRequest messageRequest = new MessageServiceRequest(
                 userId.longValue(),
+                request.room(),
                 request.content()
         );
 
@@ -42,9 +44,12 @@ public class MessageProxyController {
     }
 
     @GetMapping
-    public Object getMessages() {
+    public Object getMessages(@RequestParam(defaultValue = "general") String room) {
         return messageRestClient.get()
-                .uri("/messages")
+                .uri(uriBuilder -> uriBuilder
+                        .path("/messages")
+                        .queryParam("room", room)
+                        .build())
                 .retrieve()
                 .body(Object.class);
     }

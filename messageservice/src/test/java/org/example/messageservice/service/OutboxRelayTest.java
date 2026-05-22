@@ -138,6 +138,7 @@ class OutboxRelayTest {
                 10L,
                 1L,
                 "martin",
+                "general",
                 "Hej @bot",
                 LocalDateTime.now()
         );

@@ -11,6 +11,7 @@ import org.example.messageservice.repository.OutboxRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.UUID;
@@ -48,6 +49,7 @@ public class MessageService {
             return existingMessage;
         }
 
+        message.setRoom(normalizeRoom(message.getRoom()));
         enrichSenderProfile(message);
         ChatMessage savedMessage = messageRepository.save(message);
 
@@ -56,6 +58,7 @@ public class MessageService {
                 savedMessage.getId(),
                 savedMessage.getSenderUserId(),
                 savedMessage.getSenderUsername(),
+                savedMessage.getRoom(),
                 savedMessage.getContent(),
                 savedMessage.getCreatedAt()
         );
@@ -103,6 +106,18 @@ public class MessageService {
     }
 
     public List<ChatMessage> getMessages() {
-        return messageRepository.findAll();
+        return getMessages("general");
+    }
+
+    public List<ChatMessage> getMessages(String room) {
+        return messageRepository.findByRoomOrderByCreatedAtAsc(normalizeRoom(room));
+    }
+
+    private String normalizeRoom(String room) {
+        if (!StringUtils.hasText(room)) {
+            return "general";
+        }
+
+        return room.trim().toLowerCase();
     }
 }

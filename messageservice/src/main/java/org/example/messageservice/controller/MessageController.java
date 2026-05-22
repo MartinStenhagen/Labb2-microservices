@@ -28,7 +28,7 @@ public class MessageController {
     }
 
     @GetMapping
-    public List<ChatMessage> getMessages() {
-        return messageService.getMessages();
+    public List<ChatMessage> getMessages(@RequestParam(defaultValue = "general") String room) {
+        return messageService.getMessages(room);
     }
 }

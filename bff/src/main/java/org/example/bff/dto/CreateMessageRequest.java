@@ -1,6 +1,7 @@
 package org.example.bff.dto;
 
 public record CreateMessageRequest(
-        String content
+        String content,
+        String room
 ) {
 }

@@ -16,6 +16,8 @@ public class ChatMessage {
 
     private String senderUsername;
 
+    private String room = "general";
+
     @Column(columnDefinition = "TEXT")
     private String content;
 
@@ -45,6 +47,14 @@ public class ChatMessage {
 
     public void setSenderUsername(String senderUsername) {
         this.senderUsername = senderUsername;
+    }
+
+    public String getRoom() {
+        return room;
+    }
+
+    public void setRoom(String room) {
+        this.room = room;
     }
 
     public String getContent() {

@@ -61,6 +61,7 @@ class MessageServiceTest {
     void publishMessageEnrichesSenderAndCreatesOutboxEvent() throws Exception {
         ChatMessage message = new ChatMessage();
         message.setSenderUserId(1L);
+        message.setRoom("Support");
         message.setContent("Hej @bot");
 
         when(userProfileClient.getUserProfile(1L))
@@ -81,6 +82,7 @@ class MessageServiceTest {
 
         assertThat(savedMessage.getId()).isEqualTo(42L);
         assertThat(savedMessage.getSenderUsername()).isEqualTo("martin");
+        assertThat(savedMessage.getRoom()).isEqualTo("support");
         assertThat(outboxEvent.getAggregateType()).isEqualTo("MESSAGE");
         assertThat(outboxEvent.getAggregateId()).isEqualTo(42L);
         assertThat(outboxEvent.getType()).isEqualTo("MESSAGE_PUBLISHED");
@@ -88,6 +90,7 @@ class MessageServiceTest {
         assertThat(event.messageId()).isEqualTo(42L);
         assertThat(event.senderUserId()).isEqualTo(1L);
         assertThat(event.senderUsername()).isEqualTo("martin");
+        assertThat(event.room()).isEqualTo("support");
         assertThat(event.content()).isEqualTo("Hej @bot");
     }
 
@@ -150,5 +153,12 @@ class MessageServiceTest {
         verify(messageRepository, never()).save(any());
         verify(outboxRepository, never()).save(any());
         verifyNoInteractions(userProfileClient);
+    }
+
+    @Test
+    void getMessagesFiltersByNormalizedRoom() {
+        messageService.getMessages(" Support ");
+
+        verify(messageRepository).findByRoomOrderByCreatedAtAsc("support");
     }
 }
