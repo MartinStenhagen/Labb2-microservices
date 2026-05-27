@@ -1,0 +1,6 @@
+FROM paketobuildpacks/ubuntu-noble-run-tiny:0.0.87
+WORKDIR /workspace
+COPY target/native-runtime/ ./
+ENV LD_LIBRARY_PATH=/workspace
+EXPOSE 8083
+ENTRYPOINT ["./org.example.userservice.UserserviceApplication"]

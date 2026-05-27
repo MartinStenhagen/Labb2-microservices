@@ -1,12 +1,13 @@
 package org.example.botservice.service;
 
-import org.example.botservice.dto.CreateBotMessageRequest;
 import org.example.event.MessagePublishedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+
+import java.util.Map;
 
 @Service
 public class BotReplyService {
@@ -42,12 +43,12 @@ public class BotReplyService {
 
         String reply = botResponseGenerator.generateReply(event);
 
-        CreateBotMessageRequest request = new CreateBotMessageRequest(
-                botUserId,
-                botUsername,
-                event.room(),
-                reply,
-                event.eventId()
+        Map<String, Object> request = Map.of(
+                "senderUserId", botUserId,
+                "senderUsername", botUsername,
+                "room", event.room(),
+                "content", reply,
+                "sourceEventId", event.eventId()
         );
 
         messageServiceRestClient.post()

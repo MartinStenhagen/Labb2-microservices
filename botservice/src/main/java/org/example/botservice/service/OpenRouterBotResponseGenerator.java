@@ -9,6 +9,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 
 import java.util.List;
+import java.util.Map;
 
 public class OpenRouterBotResponseGenerator implements BotResponseGenerator {
     private static final Logger logger = LoggerFactory.getLogger(OpenRouterBotResponseGenerator.class);
@@ -43,23 +44,19 @@ public class OpenRouterBotResponseGenerator implements BotResponseGenerator {
     @Override
     public String generateReply(MessagePublishedEvent event) {
         try {
-            OpenRouterResponse response = restClient.post()
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = restClient.post()
                     .uri("/chat/completions")
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + botAiProperties.apiKey())
                     .header("HTTP-Referer", "http://localhost:8080")
                     .header("X-Title", "Labb2 Microservices Chat")
                     .body(request(event))
                     .retrieve()
-                    .body(OpenRouterResponse.class);
+                    .body(Map.class);
 
-            if (response == null || response.choices() == null || response.choices().isEmpty()) {
-                logger.warn("OpenRouter returned an empty response. Falling back to local bot response.");
-                return fallbackGenerator.generateReply(event);
-            }
-
-            String content = response.choices().getFirst().message().content();
+            String content = extractAssistantContent(response);
             if (!StringUtils.hasText(content)) {
-                logger.warn("OpenRouter returned an empty message. Falling back to local bot response.");
+                logger.warn("OpenRouter returned an empty response. Falling back to local bot response.");
                 return fallbackGenerator.generateReply(event);
             }
 
@@ -71,15 +68,43 @@ public class OpenRouterBotResponseGenerator implements BotResponseGenerator {
         }
     }
 
-    private OpenRouterRequest request(MessagePublishedEvent event) {
-        return new OpenRouterRequest(
-                botAiProperties.model(),
-                List.of(
-                        new OpenRouterMessage("system", SYSTEM_PROMPT),
-                        new OpenRouterMessage("user", userPrompt(event))
+    private Map<String, Object> request(MessagePublishedEvent event) {
+        return Map.of(
+                "model", botAiProperties.model(),
+                "messages", List.of(
+                        Map.of("role", "system", "content", SYSTEM_PROMPT),
+                        Map.of("role", "user", "content", userPrompt(event))
                 ),
-                botAiProperties.temperature()
+                "temperature", botAiProperties.temperature()
         );
+    }
+
+    private String extractAssistantContent(Map<String, Object> response) {
+        if (response == null) {
+            return null;
+        }
+
+        Object choicesObject = response.get("choices");
+        if (!(choicesObject instanceof List<?> choices) || choices.isEmpty()) {
+            return null;
+        }
+
+        Object firstChoice = choices.get(0);
+        if (!(firstChoice instanceof Map<?, ?> choice)) {
+            return null;
+        }
+
+        Object messageObject = choice.get("message");
+        if (!(messageObject instanceof Map<?, ?> message)) {
+            return null;
+        }
+
+        Object contentObject = message.get("content");
+        if (contentObject instanceof String content) {
+            return content;
+        }
+
+        return null;
     }
 
     private String userPrompt(MessagePublishedEvent event) {
@@ -97,34 +122,5 @@ public class OpenRouterBotResponseGenerator implements BotResponseGenerator {
                 .replaceAll("\\s+([,.!?])", "$1")
                 .replaceAll("\\s{2,}", " ")
                 .trim();
-    }
-
-    public record OpenRouterRequest(
-            String model,
-            List<OpenRouterMessage> messages,
-            double temperature
-    ) {
-    }
-
-    public record OpenRouterMessage(
-            String role,
-            String content
-    ) {
-    }
-
-    public record OpenRouterResponse(
-            List<Choice> choices
-    ) {
-    }
-
-    public record Choice(
-            Message message
-    ) {
-    }
-
-    public record Message(
-            String role,
-            String content
-    ) {
     }
 }

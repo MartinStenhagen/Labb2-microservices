@@ -1,0 +1,850 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: labb2
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: labb2-secret
+  namespace: labb2
+type: Opaque
+stringData:
+  mysql-root-password: root
+  rabbitmq-username: guest
+  rabbitmq-password: guest
+  internal-api-key: labb2-dev-internal-key
+  auth-oauth-client-secret: secret
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bot-ai-config
+  namespace: labb2
+data:
+  BOT_AI_ENABLED: "false"
+  BOT_AI_BASE_URL: "https://openrouter.ai/api/v1"
+  BOT_AI_MODEL: "z-ai/glm-4.5-air:free"
+  BOT_AI_TEMPERATURE: "0.3"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: auth-keys
+  namespace: labb2
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: labb2
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: mysql
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  namespace: labb2
+spec:
+  serviceName: mysql
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mysql
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mysql
+        app.kubernetes.io/part-of: labb2
+        app.kubernetes.io/component: database
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: mysql
+              containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: labb2-secret
+                  key: mysql-root-password
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 750m
+              memory: 768Mi
+          startupProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD" --silent
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD" --silent
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD" --silent
+            initialDelaySeconds: 60
+            periodSeconds: 20
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mysql-init-databases
+  namespace: labb2
+spec:
+  backoffLimit: 12
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mysql-init-databases
+        app.kubernetes.io/part-of: labb2
+        app.kubernetes.io/component: database-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mysql-init
+          image: mysql:8.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: labb2-secret
+                  key: mysql-root-password
+          command:
+            - sh
+            - -c
+            - |
+              until mysqladmin ping -h mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" --silent; do
+                echo "Waiting for MySQL..."
+                sleep 2
+              done
+              mysql -h mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "CREATE DATABASE IF NOT EXISTS users_db; CREATE DATABASE IF NOT EXISTS messages_db; CREATE DATABASE IF NOT EXISTS auth_db;"
+              mysql -h mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" users_db <<'SQL'
+              CREATE TABLE IF NOT EXISTS users (
+                  id BIGINT NOT NULL AUTO_INCREMENT,
+                  username VARCHAR(255) NOT NULL,
+                  display_name VARCHAR(255),
+                  PRIMARY KEY (id),
+                  CONSTRAINT uk_users_username UNIQUE (username)
+              );
+              SQL
+              mysql -h mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" auth_db <<'SQL'
+              CREATE TABLE IF NOT EXISTS auth_users (
+                  id BIGINT NOT NULL AUTO_INCREMENT,
+                  username VARCHAR(255) NOT NULL,
+                  password_hash VARCHAR(255) NOT NULL,
+                  user_id BIGINT NOT NULL,
+                  PRIMARY KEY (id),
+                  CONSTRAINT uk_auth_users_username UNIQUE (username)
+              );
+              SQL
+              mysql -h mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" messages_db <<'SQL'
+              CREATE TABLE IF NOT EXISTS messages (
+                  id BIGINT NOT NULL AUTO_INCREMENT,
+                  sender_user_id BIGINT,
+                  sender_username VARCHAR(255),
+                  room VARCHAR(255) NOT NULL DEFAULT 'general',
+                  content TEXT,
+                  source_event_id BINARY(16),
+                  created_at DATETIME(6),
+                  PRIMARY KEY (id),
+                  CONSTRAINT uk_messages_source_event_id UNIQUE (source_event_id)
+              );
+
+              CREATE TABLE IF NOT EXISTS outbox_events (
+                  id BIGINT NOT NULL AUTO_INCREMENT,
+                  event_id BINARY(16),
+                  aggregate_type VARCHAR(255),
+                  aggregate_id BIGINT,
+                  type VARCHAR(255),
+                  payload TEXT,
+                  created_at DATETIME(6),
+                  publish_attempts INT NOT NULL DEFAULT 0,
+                  last_attempt_at DATETIME(6),
+                  processed_at DATETIME(6),
+                  failed_at DATETIME(6),
+                  last_error TEXT,
+                  status ENUM('PENDING', 'PUBLISHING', 'PROCESSED', 'FAILED'),
+                  PRIMARY KEY (id)
+              );
+
+              SET @sql = IF(
+                  (SELECT COUNT(*) FROM information_schema.statistics
+                   WHERE table_schema = DATABASE() AND table_name = 'messages' AND index_name = 'idx_messages_room_created_at') = 0,
+                  'CREATE INDEX idx_messages_room_created_at ON messages (room, created_at)',
+                  'SELECT 1'
+              );
+              PREPARE stmt FROM @sql;
+              EXECUTE stmt;
+              DEALLOCATE PREPARE stmt;
+
+              SET @sql = IF(
+                  (SELECT COUNT(*) FROM information_schema.statistics
+                   WHERE table_schema = DATABASE() AND table_name = 'outbox_events' AND index_name = 'idx_outbox_events_status_created_at') = 0,
+                  'CREATE INDEX idx_outbox_events_status_created_at ON outbox_events (status, created_at)',
+                  'SELECT 1'
+              );
+              PREPARE stmt FROM @sql;
+              EXECUTE stmt;
+              DEALLOCATE PREPARE stmt;
+
+              SET @sql = IF(
+                  (SELECT COUNT(*) FROM information_schema.statistics
+                   WHERE table_schema = DATABASE() AND table_name = 'outbox_events' AND index_name = 'idx_outbox_events_status_last_attempt_at') = 0,
+                  'CREATE INDEX idx_outbox_events_status_last_attempt_at ON outbox_events (status, last_attempt_at)',
+                  'SELECT 1'
+              );
+              PREPARE stmt FROM @sql;
+              EXECUTE stmt;
+              DEALLOCATE PREPARE stmt;
+              SQL
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq-headless
+  namespace: labb2
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: 5672
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: labb2
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: 5672
+    - name: management
+      port: 15672
+      targetPort: 15672
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rabbitmq
+  namespace: labb2
+spec:
+  serviceName: rabbitmq-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rabbitmq
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rabbitmq
+        app.kubernetes.io/part-of: labb2
+        app.kubernetes.io/component: message-broker
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:3-management
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: amqp
+              containerPort: 5672
+            - name: management
+              containerPort: 15672
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: labb2-secret
+                  key: rabbitmq-username
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: labb2-secret
+                  key: rabbitmq-password
+          volumeMounts:
+            - name: rabbitmq-data
+              mountPath: /var/lib/rabbitmq
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          startupProbe:
+            tcpSocket:
+              port: 5672
+            failureThreshold: 60
+            periodSeconds: 5
+            timeoutSeconds: 5
+          readinessProbe:
+            tcpSocket:
+              port: 5672
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 5672
+            initialDelaySeconds: 180
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 6
+  volumeClaimTemplates:
+    - metadata:
+        name: rabbitmq-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: userservice
+  namespace: labb2
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: userservice
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: userservice
+        app.kubernetes.io/part-of: labb2
+        app.kubernetes.io/component: user-api
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: userservice
+          image: labb2-userservice:native
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http-grpc
+              containerPort: 8083
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:mysql://mysql:3306/users_db?createDatabaseIfNotExist=true
+            - name: SPRING_DATASOURCE_USERNAME
+              value: root
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: labb2-secret
+                  key: mysql-root-password
+            - name: INTERNAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: labb2-secret
+                  key: internal-api-key
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 750m
+              memory: 512Mi
+          startupProbe:
+            tcpSocket:
+              port: 8083
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            tcpSocket:
+              port: 8083
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8083
+            initialDelaySeconds: 45
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: userservice
+  namespace: labb2
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: userservice
+  ports:
+    - name: http-grpc
+      port: 8083
+      targetPort: 8083
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authservice
+  namespace: labb2
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: authservice
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: authservice
+        app.kubernetes.io/part-of: labb2
+        app.kubernetes.io/component: auth-api
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: authservice
+          image: labb2-authservice:native
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 9000
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:mysql://mysql:3306/auth_db?createDatabaseIfNotExist=true
+            - name: SPRING_DATASOURCE_USERNAME
+              value: root
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: labb2-secret
+                  key: mysql-root-password
+            - name: USER_SERVICE_URL
+              value: http://userservice:8083
+            - name: INTERNAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: labb2-secret
+                  key: internal-api-key
+            - name: AUTH_ISSUER
+              value: http://authservice:9000
+            - name: AUTH_OAUTH_CLIENT_ID
+              value: gateway-client
+            - name: AUTH_OAUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: labb2-secret
+                  key: auth-oauth-client-secret
+            - name: AUTH_OAUTH_REDIRECT_URI
+              value: http://localhost:30080/login/oauth2/code/authservice
+            - name: AUTH_SIGNING_KEY_PATH
+              value: /auth-keys/authservice-ec-key.json
+          volumeMounts:
+            - name: auth-keys
+              mountPath: /auth-keys
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 750m
+              memory: 512Mi
+          startupProbe:
+            tcpSocket:
+              port: 9000
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            tcpSocket:
+              port: 9000
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 9000
+            initialDelaySeconds: 45
+            periodSeconds: 20
+      volumes:
+        - name: auth-keys
+          persistentVolumeClaim:
+            claimName: auth-keys
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: authservice
+  namespace: labb2
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: authservice
+  ports:
+    - name: http
+      port: 9000
+      targetPort: 9000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: messageservice
+  namespace: labb2
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: messageservice
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: messageservice
+        app.kubernetes.io/part-of: labb2
+        app.kubernetes.io/component: message-api
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: messageservice
+          image: labb2-messageservice:native
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8081
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:mysql://mysql:3306/messages_db?createDatabaseIfNotExist=true
+            - name: SPRING_DATASOURCE_USERNAME
+              value: root
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: labb2-secret
+                  key: mysql-root-password
+            - name: SPRING_RABBITMQ_HOST
+              value: rabbitmq
+            - name: SPRING_RABBITMQ_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: labb2-secret
+                  key: rabbitmq-username
+            - name: SPRING_RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: labb2-secret
+                  key: rabbitmq-password
+            - name: SPRING_GRPC_CLIENT_DEFAULT_CHANNEL_ADDRESS
+              value: userservice:8083
+            - name: SPRING_GRPC_CLIENT_DEFAULT_CHANNEL_SECURE
+              value: "false"
+            - name: INTERNAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: labb2-secret
+                  key: internal-api-key
+            - name: BOT_USER_ID
+              value: "0"
+            - name: BOT_USERNAME
+              value: bot
+            - name: OUTBOX_MAX_ATTEMPTS
+              value: "30"
+            - name: OUTBOX_PUBLISHING_TIMEOUT_MS
+              value: "60000"
+          resources:
+            requests:
+              cpu: 150m
+              memory: 384Mi
+            limits:
+              cpu: 1000m
+              memory: 768Mi
+          startupProbe:
+            tcpSocket:
+              port: 8081
+            failureThreshold: 36
+            periodSeconds: 5
+          readinessProbe:
+            tcpSocket:
+              port: 8081
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8081
+            initialDelaySeconds: 60
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: messageservice
+  namespace: labb2
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: messageservice
+  ports:
+    - name: http
+      port: 8081
+      targetPort: 8081
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: botservice
+  namespace: labb2
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: botservice
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: botservice
+        app.kubernetes.io/part-of: labb2
+        app.kubernetes.io/component: bot-worker
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: botservice
+          image: labb2-botservice:native
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8082
+          env:
+            - name: SPRING_RABBITMQ_HOST
+              value: rabbitmq
+            - name: SPRING_RABBITMQ_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: labb2-secret
+                  key: rabbitmq-username
+            - name: SPRING_RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: labb2-secret
+                  key: rabbitmq-password
+            - name: MESSAGE_SERVICE_URL
+              value: http://messageservice:8081
+            - name: INTERNAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: labb2-secret
+                  key: internal-api-key
+            - name: BOT_USER_ID
+              value: "0"
+            - name: BOT_USERNAME
+              value: bot
+            - name: BOT_AI_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: bot-ai-config
+                  key: BOT_AI_ENABLED
+            - name: BOT_AI_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: bot-ai-config
+                  key: BOT_AI_BASE_URL
+            - name: BOT_AI_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  name: bot-ai-config
+                  key: BOT_AI_MODEL
+            - name: BOT_AI_TEMPERATURE
+              valueFrom:
+                configMapKeyRef:
+                  name: bot-ai-config
+                  key: BOT_AI_TEMPERATURE
+            - name: BOT_AI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: bot-ai-secret
+                  key: OPENROUTER_API_KEY
+                  optional: true
+          resources:
+            requests:
+              cpu: 75m
+              memory: 192Mi
+            limits:
+              cpu: 750m
+              memory: 512Mi
+          startupProbe:
+            tcpSocket:
+              port: 8082
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            tcpSocket:
+              port: 8082
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8082
+            initialDelaySeconds: 45
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: botservice
+  namespace: labb2
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: botservice
+  ports:
+    - name: http
+      port: 8082
+      targetPort: 8082
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bff
+  namespace: labb2
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: bff
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: bff
+        app.kubernetes.io/part-of: labb2
+        app.kubernetes.io/component: gateway
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: bff
+          image: labb2-bff:native
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: AUTH_SERVICE_URL
+              value: http://authservice:9000
+            - name: USER_SERVICE_URL
+              value: http://userservice:8083
+            - name: MESSAGE_SERVICE_URL
+              value: http://messageservice:8081
+            - name: INTERNAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: labb2-secret
+                  key: internal-api-key
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
+              value: http://authservice:9000/auth/jwks
+          resources:
+            requests:
+              cpu: 75m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 384Mi
+          startupProbe:
+            tcpSocket:
+              port: 8080
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 45
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bff
+  namespace: labb2
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: bff
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      nodePort: 30080

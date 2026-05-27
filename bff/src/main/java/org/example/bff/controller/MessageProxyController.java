@@ -1,7 +1,6 @@
 package org.example.bff.controller;
 
 import org.example.bff.dto.CreateMessageRequest;
-import org.example.bff.dto.MessageServiceRequest;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -13,6 +12,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClient;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/messages")
@@ -30,10 +31,10 @@ public class MessageProxyController {
             @RequestBody CreateMessageRequest request
     ) {
         Number userId = jwt.getClaim("userId");
-        MessageServiceRequest messageRequest = new MessageServiceRequest(
-                userId.longValue(),
-                request.room(),
-                request.content()
+        Map<String, Object> messageRequest = Map.of(
+                "senderUserId", userId.longValue(),
+                "room", request.room(),
+                "content", request.content()
         );
 
         return messageRestClient.post()

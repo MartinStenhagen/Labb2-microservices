@@ -77,7 +77,7 @@ public class LoginController {
         AuthUser authUser = new AuthUser(
                 request.username(),
                 passwordEncoder.encode(request.password()),
-                userProfile.id()
+                userProfile.getId()
         );
 
         AuthUser savedUser = authUserRepository.save(authUser);
