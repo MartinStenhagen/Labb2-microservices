@@ -485,7 +485,7 @@ spec:
                   name: labb2-secret
                   key: auth-oauth-client-secret
             - name: AUTH_OAUTH_REDIRECT_URI
-              value: http://localhost:30080/login/oauth2/code/authservice
+              value: http://labb2.localhost/login/oauth2/code/authservice
             - name: AUTH_SIGNING_KEY_PATH
               value: /auth-keys/authservice-ec-key.json
           volumeMounts:
@@ -827,11 +827,10 @@ metadata:
   name: bff
   namespace: labb2
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app.kubernetes.io/name: bff
   ports:
     - name: http
       port: 8080
       targetPort: 8080
-      nodePort: 30080

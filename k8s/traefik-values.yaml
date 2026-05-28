@@ -1,0 +1,28 @@
+# Traefik is installed as the external entry point for the local Kubernetes cluster.
+# Application services stay internal ClusterIP services; traffic enters through Gateway API routes.
+
+deployment:
+  replicas: 1
+
+providers:
+  kubernetesGateway:
+    enabled: true
+
+# The application declares its own Gateway and HTTPRoute in labb2-gateway-traefik.yaml.
+gateway:
+  enabled: false
+
+service:
+  type: LoadBalancer
+
+ports:
+  web:
+    port: 8000
+    exposedPort: 80
+    protocol: TCP
+
+logs:
+  general:
+    level: INFO
+  access:
+    enabled: true

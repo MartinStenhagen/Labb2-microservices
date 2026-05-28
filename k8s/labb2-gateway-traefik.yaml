@@ -2,6 +2,9 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
   name: traefik
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/part-of: labb2
 spec:
   controllerName: traefik.io/gateway-controller
 ---
@@ -10,12 +13,17 @@ kind: Gateway
 metadata:
   name: labb2-gateway
   namespace: labb2
+  labels:
+    app.kubernetes.io/name: labb2-gateway
+    app.kubernetes.io/part-of: labb2
+    app.kubernetes.io/component: edge-gateway
 spec:
   gatewayClassName: traefik
   listeners:
     - name: http
+      hostname: labb2.localhost
       protocol: HTTP
-      port: 80
+      port: 8000
       allowedRoutes:
         namespaces:
           from: Same
@@ -25,9 +33,15 @@ kind: HTTPRoute
 metadata:
   name: bff-route
   namespace: labb2
+  labels:
+    app.kubernetes.io/name: bff-route
+    app.kubernetes.io/part-of: labb2
 spec:
   parentRefs:
     - name: labb2-gateway
+      sectionName: http
+  hostnames:
+    - labb2.localhost
   rules:
     - matches:
         - path:
@@ -36,3 +50,4 @@ spec:
       backendRefs:
         - name: bff
           port: 8080
+          weight: 1

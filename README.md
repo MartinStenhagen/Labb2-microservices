@@ -42,7 +42,7 @@ Webbgränssnittet finns i `bff/src/main/resources/static` och serveras av BFF-tj
 
 | Tjänst | Port lokalt | Port i Kubernetes | Ansvar |
 | --- | ---: | ---: | --- |
-| `bff` | `8080` | `30080` via NodePort | Webb-UI och API-gateway för frontend |
+| `bff` | `8080` | internt `8080`, exponeras via Traefik | Webb-UI och API-gateway för frontend |
 | `authservice` | `9000` | internt `9000` | Registrering, login, JWT och JWKS |
 | `userservice` | `8083` | internt `8083` | Användarprofiler via REST och gRPC |
 | `messageservice` | `8081` | internt `8081` | Meddelanden, rum, outbox och RabbitMQ-publicering |
@@ -56,7 +56,8 @@ I normal användning ska webbläsaren bara prata med `bff`. De andra tjänsterna
 
 ```mermaid
 flowchart LR
-    Browser["Webbläsare"] --> BFF["bff<br/>UI + API gateway"]
+    Browser["Webbläsare"] --> Traefik["Traefik<br/>Gateway API"]
+    Traefik --> BFF["bff<br/>UI + API gateway"]
     BFF --> Auth["authservice<br/>login/register/JWT"]
     BFF --> Messages["messageservice<br/>chat + outbox"]
     BFF --> Users["userservice<br/>user REST"]
@@ -320,13 +321,19 @@ Om en port redan används måste den processen stoppas eller porten ändras i mo
 
 Kubernetes-manifesten ligger i `k8s/`.
 
-Huvudmanifest:
+Huvudmanifest för själva applikationen:
 
 ```text
 k8s/labb2.yaml
 ```
 
-Valfritt Gateway API-manifest för Traefik:
+Traefik installeras med Helm och denna values-fil:
+
+```text
+k8s/traefik-values.yaml
+```
+
+Gateway API-manifestet för applikationens externa route:
 
 ```text
 k8s/labb2-gateway-traefik.yaml
@@ -337,7 +344,16 @@ k8s/labb2-gateway-traefik.yaml
 - Docker Desktop
 - Kubernetes aktiverat i Docker Desktop
 - `kubectl` fungerar mot Docker Desktop-klustret
+- Helm installerat
 - Native-images finns lokalt, eller byggs enligt avsnittet [Bygga native-images](#bygga-native-images)
+
+Om `helm version` inte fungerar i PowerShell kan du installera Helm på Windows med:
+
+```powershell
+winget install Helm.Helm
+```
+
+Starta om terminalen efter installationen så att `helm` finns i PATH.
 
 Kontrollera klustret:
 
@@ -362,14 +378,34 @@ kubectl create secret generic labb2-secret `
   --from-literal=rabbitmq-password="$rabbitPassword" `
   --from-literal=internal-api-key="$internalApiKey" `
   --from-literal=auth-oauth-client-secret="$oauthClientSecret"
+```
 
+Installera Gateway API CRDs och Traefik:
+
+```powershell
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.1/standard-install.yaml
+
+helm repo add traefik https://traefik.github.io/charts
+helm repo update
+helm upgrade --install traefik traefik/traefik `
+  --namespace traefik `
+  --create-namespace `
+  -f k8s\traefik-values.yaml `
+  --wait
+```
+
+Starta applikationen och dess Gateway API route:
+
+```powershell
 kubectl apply -f k8s\labb2.yaml
+kubectl apply -f k8s\labb2-gateway-traefik.yaml
 ```
 
 Vänta tills allt är redo:
 
 ```powershell
 kubectl get pods -n labb2
+kubectl get gateway,httproute -n labb2
 ```
 
 Alla relevanta pods ska visa `1/1 Running`, och initjobbet ska visa `Completed`.
@@ -377,12 +413,12 @@ Alla relevanta pods ska visa `1/1 Running`, och initjobbet ska visa `Completed`.
 Öppna appen:
 
 ```text
-http://localhost:30080
+http://labb2.localhost
 ```
 
 ### Stoppa eller rensa Kubernetes-miljön
 
-Stoppa hela labbmiljön genom att ta bort namespacet:
+Stoppa applikationen genom att ta bort namespacet:
 
 ```powershell
 kubectl delete namespace labb2
@@ -390,11 +426,48 @@ kubectl delete namespace labb2
 
 Detta tar även bort lokala PVC:er i namespace `labb2`, så databasinnehåll försvinner i den lokala Kubernetes-miljön.
 
+Ta bort Traefik separat om du även vill rensa ingress-/gatewaylagret:
+
+```powershell
+helm uninstall traefik -n traefik
+kubectl delete namespace traefik
+```
+
 ### Traefik och Gateway API
 
-`k8s/labb2-gateway-traefik.yaml` är förberedd för Traefik med Gateway API. Den ska bara appliceras om Gateway API CRDs och Traefik Gateway Controller finns installerade.
+Kubernetes-driften använder Traefik som extern entrypoint. Det innebär att BFF inte exponeras direkt med `NodePort`. I stället är BFF en intern `ClusterIP`-service, och Traefik routar extern HTTP-trafik till BFF via Gateway API.
 
-Basappen kräver inte Gateway API. Lokalt räcker BFF som `NodePort` på `30080`.
+Traefiks Kubernetes Service exponerar HTTP på port `80`, medan Traefiks interna `web` entrypoint i Helm-chartet använder port `8000`. Därför använder `Gateway`-listenern port `8000`, men du surfar fortfarande till vanlig HTTP-port:
+
+Flödet är:
+
+```text
+http://labb2.localhost
+  -> Traefik LoadBalancer Service
+  -> Traefik web entrypoint 8000
+  -> Gateway labb2-gateway
+  -> HTTPRoute bff-route
+  -> bff Service
+  -> bff Pod
+```
+
+Om `labb2.localhost` inte fungerar i din miljö kan du testa med Host-header:
+
+```powershell
+Invoke-WebRequest -Uri "http://localhost" -Headers @{ Host = "labb2.localhost" }
+```
+
+Om port `80` redan används kan du temporärt port-forwarda Traefik:
+
+```powershell
+kubectl -n traefik port-forward svc/traefik 8088:80
+```
+
+Öppna då:
+
+```text
+http://labb2.localhost:8088
+```
 
 ## Bygga native-images
 
@@ -524,10 +597,10 @@ $baseUrl = "http://localhost:8080"
 
 ### Kubernetes
 
-Använd port `30080`:
+Använd Traefik-adressen:
 
 ```powershell
-$baseUrl = "http://localhost:30080"
+$baseUrl = "http://labb2.localhost"
 ```
 
 ### Skapa användare
@@ -619,7 +692,7 @@ cd ..
 Om en tjänst inte startar kan en port redan vara upptagen. Vanliga portar:
 
 ```text
-8080, 8081, 8082, 8083, 9000, 3306, 5672, 15672, 30080
+80, 443, 8080, 8081, 8082, 8083, 9000, 3306, 5672, 15672
 ```
 
 Stoppa processen som använder porten, eller ändra `server.port` i berörd modul.
@@ -637,7 +710,10 @@ Kubernetes:
 
 ```powershell
 kubectl delete namespace labb2
+kubectl create namespace labb2 --dry-run=client -o yaml | kubectl apply -f -
+# skapa labb2-secret igen enligt Kubernetes-avsnittet ovan
 kubectl apply -f k8s\labb2.yaml
+kubectl apply -f k8s\labb2-gateway-traefik.yaml
 ```
 
 ### RabbitMQ startar långsamt
@@ -721,11 +797,14 @@ http://localhost:8080
 För Kubernetes:
 
 ```powershell
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.1/standard-install.yaml
+helm upgrade --install traefik traefik/traefik --namespace traefik --create-namespace -f k8s\traefik-values.yaml --wait
 kubectl apply -f k8s\labb2.yaml
+kubectl apply -f k8s\labb2-gateway-traefik.yaml
 ```
 
 Öppna:
 
 ```text
-http://localhost:30080
+http://labb2.localhost
 ```
