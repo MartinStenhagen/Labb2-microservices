@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClient;
+import org.springframework.util.StringUtils;
 
 import java.util.Map;
 
@@ -33,8 +34,9 @@ public class MessageProxyController {
         Number userId = jwt.getClaim("userId");
         Map<String, Object> messageRequest = Map.of(
                 "senderUserId", userId.longValue(),
-                "room", request.room(),
-                "content", request.content()
+                "room", normalizeRoom(request.room()),
+                "content", request.content(),
+                "botPersonality", normalizeBotPersonality(request.botPersonality())
         );
 
         return messageRestClient.post()
@@ -61,5 +63,21 @@ public class MessageProxyController {
                 .uri("/messages/{id}", id)
                 .retrieve()
                 .body(Object.class);
+    }
+
+    private String normalizeRoom(String room) {
+        if (!StringUtils.hasText(room)) {
+            return "general";
+        }
+
+        return room.trim().toLowerCase();
+    }
+
+    private String normalizeBotPersonality(String botPersonality) {
+        if ("pirate".equalsIgnoreCase(botPersonality)) {
+            return "pirate";
+        }
+
+        return "neutral";
     }
 }

@@ -1,9 +1,12 @@
 let accessToken = null;
 let currentUsername = null;
 let currentRoom = "general";
+let currentBotPersonality = "neutral";
+let aiBotEnabled = false;
 let refreshTimer = null;
 
 const SESSION_STORAGE_KEY = "labb2-chat-session";
+const BOT_PERSONALITY_STORAGE_KEY = "labb2-chat-bot-personality";
 
 const loginView = document.getElementById("login-view");
 const chatView = document.getElementById("chat-view");
@@ -12,6 +15,8 @@ const notice = document.getElementById("notice");
 const messages = document.getElementById("messages");
 const messageInput = document.getElementById("message-input");
 const roomSelect = document.getElementById("room-select");
+const botPersonalityPicker = document.getElementById("bot-personality-picker");
+const botPersonalitySelect = document.getElementById("bot-personality-select");
 
 document.getElementById("login-form").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -68,7 +73,8 @@ async function sendMessage() {
             auth: true,
             body: {
                 content,
-                room: currentRoom
+                room: currentRoom,
+                botPersonality: aiBotEnabled ? currentBotPersonality : "neutral"
             }
         });
 
@@ -87,15 +93,40 @@ roomSelect.addEventListener("change", async () => {
     await loadMessages();
 });
 
+botPersonalitySelect.addEventListener("change", () => {
+    currentBotPersonality = normalizeBotPersonality(botPersonalitySelect.value);
+    botPersonalitySelect.value = currentBotPersonality;
+    localStorage.setItem(BOT_PERSONALITY_STORAGE_KEY, currentBotPersonality);
+});
+
 document.getElementById("logout-button").addEventListener("click", () => {
     clearSession();
     showNotice("Du är utloggad.");
 });
 
-restoreSession().catch((error) => {
+initialize().catch((error) => {
     clearSession();
     showNotice(error.message);
 });
+
+async function initialize() {
+    restoreBotPersonality();
+    await loadFrontendConfig();
+    await restoreSession();
+}
+
+async function loadFrontendConfig() {
+    try {
+        const config = await request("/api/config", {
+            method: "GET"
+        });
+        aiBotEnabled = config.aiBotEnabled === true;
+    } catch {
+        aiBotEnabled = false;
+    }
+
+    updateBotPersonalityUi();
+}
 
 async function loadMessages() {
     if (!accessToken) {
@@ -223,6 +254,20 @@ function clearSession() {
     sessionStatus.textContent = "";
     chatView.classList.add("hidden");
     loginView.classList.remove("hidden");
+}
+
+function restoreBotPersonality() {
+    currentBotPersonality = normalizeBotPersonality(localStorage.getItem(BOT_PERSONALITY_STORAGE_KEY));
+    botPersonalitySelect.value = currentBotPersonality;
+}
+
+function updateBotPersonalityUi() {
+    botPersonalityPicker.classList.toggle("hidden", !aiBotEnabled);
+    botPersonalitySelect.value = currentBotPersonality;
+}
+
+function normalizeBotPersonality(value) {
+    return value === "pirate" ? "pirate" : "neutral";
 }
 
 function renderMessages(items) {

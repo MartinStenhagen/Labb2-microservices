@@ -157,7 +157,7 @@ Som standard kör botten i regelbaserat läge. Då svarar den med fasta, men lit
 
 Botten svarar bara när meddelandet innehåller `@bot`.
 
-Det finns även stöd för AI-svar via OpenRouter. Det är avstängt som standard. Om AI-läget är aktivt och API-anropet misslyckas faller botten tillbaka till regelbaserade svar. Om AI-läget är aktivt men API-nyckel saknas kommer `botservice` inte kunna starta korrekt.
+Det finns även stöd för AI-svar via OpenRouter. Det är avstängt som standard. Om AI-läget är aktivt visas ett val i webbgränssnittet för `Neutral` eller `Pirat`. Valet skickas med varje meddelande och påverkar bara bottsvaret för det meddelandet. Om AI-läget är aktivt och API-anropet misslyckas faller botten tillbaka till regelbaserade svar. Om AI-läget är aktivt men API-nyckel saknas kommer `botservice` inte kunna starta korrekt.
 
 ### Aktivera AI med Docker Compose
 
@@ -183,7 +183,7 @@ kubectl create secret generic bot-ai-secret `
 
 ```powershell
 kubectl apply -f k8s\labb2.yaml
-kubectl rollout restart deployment/botservice -n labb2
+kubectl rollout restart deployment/botservice deployment/bff -n labb2
 ```
 
 ## Köra med Docker Compose
@@ -639,6 +639,7 @@ $session = Invoke-RestMethod `
 ```powershell
 $messageBody = @{
   room = "general"
+  botPersonality = "neutral"
   content = "Hej @bot"
 } | ConvertTo-Json
 

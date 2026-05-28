@@ -72,6 +72,7 @@ class BotReplyServiceTest {
                 1L,
                 senderUsername,
                 "support",
+                "neutral",
                 content,
                 LocalDateTime.now()
         );

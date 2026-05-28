@@ -54,6 +54,7 @@ class RuleBasedBotReplyGeneratorTest {
                 1L,
                 "martin",
                 "general",
+                "neutral",
                 content,
                 LocalDateTime.now()
         );

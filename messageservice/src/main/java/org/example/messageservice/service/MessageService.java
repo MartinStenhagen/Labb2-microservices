@@ -50,6 +50,7 @@ public class MessageService {
         }
 
         message.setRoom(normalizeRoom(message.getRoom()));
+        message.setBotPersonality(normalizeBotPersonality(message.getBotPersonality()));
         enrichSenderProfile(message);
         ChatMessage savedMessage = messageRepository.save(message);
 
@@ -59,6 +60,7 @@ public class MessageService {
                 savedMessage.getSenderUserId(),
                 savedMessage.getSenderUsername(),
                 savedMessage.getRoom(),
+                savedMessage.getBotPersonality(),
                 savedMessage.getContent(),
                 savedMessage.getCreatedAt()
         );
@@ -119,5 +121,13 @@ public class MessageService {
         }
 
         return room.trim().toLowerCase();
+    }
+
+    private String normalizeBotPersonality(String botPersonality) {
+        if ("pirate".equalsIgnoreCase(botPersonality)) {
+            return "pirate";
+        }
+
+        return "neutral";
     }
 }

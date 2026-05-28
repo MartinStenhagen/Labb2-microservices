@@ -18,6 +18,8 @@ public class ChatMessage {
 
     private String room = "general";
 
+    private String botPersonality = "neutral";
+
     @Column(columnDefinition = "TEXT")
     private String content;
 
@@ -55,6 +57,14 @@ public class ChatMessage {
 
     public void setRoom(String room) {
         this.room = room;
+    }
+
+    public String getBotPersonality() {
+        return botPersonality;
+    }
+
+    public void setBotPersonality(String botPersonality) {
+        this.botPersonality = botPersonality;
     }
 
     public String getContent() {

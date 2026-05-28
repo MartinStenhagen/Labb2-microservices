@@ -175,6 +175,7 @@ spec:
                   sender_user_id BIGINT,
                   sender_username VARCHAR(255),
                   room VARCHAR(255) NOT NULL DEFAULT 'general',
+                  bot_personality VARCHAR(32) NOT NULL DEFAULT 'neutral',
                   content TEXT,
                   source_event_id BINARY(16),
                   created_at DATETIME(6),
@@ -198,6 +199,16 @@ spec:
                   status ENUM('PENDING', 'PUBLISHING', 'PROCESSED', 'FAILED'),
                   PRIMARY KEY (id)
               );
+
+              SET @sql = IF(
+                  (SELECT COUNT(*) FROM information_schema.columns
+                   WHERE table_schema = DATABASE() AND table_name = 'messages' AND column_name = 'bot_personality') = 0,
+                  'ALTER TABLE messages ADD COLUMN bot_personality VARCHAR(32) NOT NULL DEFAULT ''neutral''',
+                  'SELECT 1'
+              );
+              PREPARE stmt FROM @sql;
+              EXECUTE stmt;
+              DEALLOCATE PREPARE stmt;
 
               SET @sql = IF(
                   (SELECT COUNT(*) FROM information_schema.statistics
@@ -799,6 +810,11 @@ spec:
                   key: internal-api-key
             - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
               value: http://authservice:9000/auth/jwks
+            - name: BOT_AI_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: bot-ai-config
+                  key: BOT_AI_ENABLED
           resources:
             requests:
               cpu: 75m

@@ -153,7 +153,8 @@ textarea {
     color: var(--primary-dark);
 }
 
-.room-picker {
+.room-picker,
+.setting-picker {
     align-items: center;
     color: var(--muted);
     display: flex;
@@ -162,7 +163,8 @@ textarea {
     gap: 0.45rem;
 }
 
-.room-picker select {
+.room-picker select,
+.setting-picker select {
     min-width: 120px;
     padding: 0.55rem 0.65rem;
 }

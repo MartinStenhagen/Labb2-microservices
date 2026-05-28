@@ -121,6 +121,7 @@ services:
       USER_SERVICE_URL: http://userservice:8083
       MESSAGE_SERVICE_URL: http://messageservice:8081
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://authservice:9000/auth/jwks
+      BOT_AI_ENABLED: ${BOT_AI_ENABLED:-false}
     secrets:
       - source: internal_api_key
         target: internal.api-key

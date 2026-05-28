@@ -62,6 +62,7 @@ class MessageServiceTest {
         ChatMessage message = new ChatMessage();
         message.setSenderUserId(1L);
         message.setRoom("Support");
+        message.setBotPersonality("pirate");
         message.setContent("Hej @bot");
 
         when(userProfileClient.getUserProfile(1L))
@@ -91,6 +92,7 @@ class MessageServiceTest {
         assertThat(event.senderUserId()).isEqualTo(1L);
         assertThat(event.senderUsername()).isEqualTo("martin");
         assertThat(event.room()).isEqualTo("support");
+        assertThat(event.botPersonality()).isEqualTo("pirate");
         assertThat(event.content()).isEqualTo("Hej @bot");
     }
 

@@ -2,6 +2,7 @@ package org.example.botservice.config;
 
 import org.example.botservice.service.BotResponseGenerator;
 import org.example.botservice.service.OpenRouterBotResponseGenerator;
+import org.example.botservice.service.BotPersonalityPrompts;
 import org.example.botservice.service.RuleBasedBotReplyGenerator;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -17,13 +18,26 @@ public class BotResponseGeneratorConfig {
     }
 
     @Bean
+    BotPersonalityPrompts botPersonalityPrompts() {
+        return new BotPersonalityPrompts();
+    }
+
+    @Bean
     @ConditionalOnProperty(prefix = "bot.ai", name = "enabled", havingValue = "true")
     BotResponseGenerator openRouterBotResponseGenerator(
             RestClient.Builder restClientBuilder,
+            RestClient messageServiceRestClient,
             BotAiProperties botAiProperties,
-            RuleBasedBotReplyGenerator ruleBasedBotReplyGenerator
+            RuleBasedBotReplyGenerator ruleBasedBotReplyGenerator,
+            BotPersonalityPrompts botPersonalityPrompts
     ) {
-        return new OpenRouterBotResponseGenerator(restClientBuilder, botAiProperties, ruleBasedBotReplyGenerator);
+        return new OpenRouterBotResponseGenerator(
+                restClientBuilder,
+                messageServiceRestClient,
+                botAiProperties,
+                ruleBasedBotReplyGenerator,
+                botPersonalityPrompts
+        );
     }
 
     @Bean

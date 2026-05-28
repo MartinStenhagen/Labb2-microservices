@@ -9,6 +9,7 @@ public class MessagePublishedEvent {
     private Long senderUserId;
     private String senderUsername;
     private String room;
+    private String botPersonality;
     private String content;
     private LocalDateTime publishedAt;
 
@@ -21,6 +22,7 @@ public class MessagePublishedEvent {
             Long senderUserId,
             String senderUsername,
             String room,
+            String botPersonality,
             String content,
             LocalDateTime publishedAt
     ) {
@@ -29,6 +31,7 @@ public class MessagePublishedEvent {
         this.senderUserId = senderUserId;
         this.senderUsername = senderUsername;
         this.room = room;
+        this.botPersonality = botPersonality;
         this.content = content;
         this.publishedAt = publishedAt;
     }
@@ -73,6 +76,14 @@ public class MessagePublishedEvent {
         this.room = room;
     }
 
+    public String getBotPersonality() {
+        return botPersonality;
+    }
+
+    public void setBotPersonality(String botPersonality) {
+        this.botPersonality = botPersonality;
+    }
+
     public String getContent() {
         return content;
     }
@@ -107,6 +118,10 @@ public class MessagePublishedEvent {
 
     public String room() {
         return room;
+    }
+
+    public String botPersonality() {
+        return botPersonality;
     }
 
     public String content() {
