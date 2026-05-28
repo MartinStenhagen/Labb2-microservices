@@ -157,7 +157,11 @@ Som standard kör botten i regelbaserat läge. Då svarar den med fasta, men lit
 
 Botten svarar bara när meddelandet innehåller `@bot`.
 
-Det finns även stöd för AI-svar via OpenRouter. Det är avstängt som standard. Om AI-läget är aktivt visas ett val i webbgränssnittet för `Neutral` eller `Pirat`. Valet skickas med varje meddelande och påverkar bara bottsvaret för det meddelandet. Om AI-läget är aktivt och API-anropet misslyckas faller botten tillbaka till regelbaserade svar. Om AI-läget är aktivt men API-nyckel saknas kommer `botservice` inte kunna starta korrekt.
+Det finns även stöd för AI-svar via OpenRouter. Det är avstängt som standard. Om AI-läget är aktivt visas ett val i webbgränssnittet för `Neutral` eller `Pirat`. Valet skickas med varje meddelande och påverkar bara bottsvaret för det meddelandet. Om AI-läget är aktivt och API-anropet misslyckas faller botten tillbaka till regelbaserade svar.
+
+`botservice` innehåller både den regelbaserade generatorn och OpenRouter-generatorn i samma native image. Valet mellan dem görs vid runtime med `BOT_AI_ENABLED`, så du kan slå på eller av AI-läget med Kubernetes ConfigMap/Secret och rollout utan att bygga om imagen. Om Java-koden för botten ändras måste imagen däremot byggas om.
+
+När `BOT_AI_ENABLED=true` behöver `botservice` också en OpenRouter-nyckel via `BOT_AI_API_KEY` eller `OPENROUTER_API_KEY`. Saknas nyckeln startar inte `botservice`, vilket är avsiktligt för att undvika ett halvt aktiverat AI-läge.
 
 ### Aktivera AI med Docker Compose
 
@@ -171,18 +175,72 @@ docker compose up --build
 
 ### Aktivera AI i Kubernetes
 
-Skapa en secret:
+Skapa eller uppdatera först secreten med OpenRouter-nyckeln:
 
 ```powershell
 kubectl create secret generic bot-ai-secret `
   -n labb2 `
-  --from-literal=OPENROUTER_API_KEY="din-api-nyckel"
+  --from-literal=OPENROUTER_API_KEY="din-api-nyckel" `
+  --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-Ändra sedan `BOT_AI_ENABLED` i `k8s/labb2.yaml` från `"false"` till `"true"` och applicera manifestet:
+Slå sedan på AI-läget i ConfigMap:
 
 ```powershell
-kubectl apply -f k8s\labb2.yaml
+$patch = @{
+  data = @{
+    BOT_AI_ENABLED = "true"
+  }
+} | ConvertTo-Json -Compress
+
+kubectl patch configmap bot-ai-config `
+  -n labb2 `
+  --type merge `
+  -p $patch
+```
+
+Starta om `botservice` och `bff` så de läser miljövariablerna igen:
+
+```powershell
+kubectl rollout restart deployment/botservice deployment/bff -n labb2
+kubectl rollout status deployment/botservice -n labb2
+kubectl rollout status deployment/bff -n labb2
+```
+
+Kontrollera frontend-konfigurationen:
+
+```powershell
+Invoke-RestMethod http://labb2.localhost/api/config
+```
+
+Kontrollera gärna också att `botservice` verkligen startade i AI-läge:
+
+```powershell
+kubectl logs deployment/botservice -n labb2 --since=5m
+```
+
+Loggen ska innehålla något i stil med:
+
+```text
+AI bot response generation is enabled. Using OpenRouter model ...
+```
+
+### Stäng av AI i Kubernetes
+
+```powershell
+$patch = @{
+  data = @{
+    BOT_AI_ENABLED = "false"
+  }
+} | ConvertTo-Json -Compress
+
+kubectl patch configmap bot-ai-config `
+  -n labb2 `
+  --type merge `
+  -p $patch
+```
+
+```powershell
 kubectl rollout restart deployment/botservice deployment/bff -n labb2
 ```
 
@@ -485,6 +543,8 @@ På grund av nuvarande builder-stöd används Java 25 vid native-build, även om
 
 Kör helst native-byggen när Kubernetes är nedskalat eller avstängt, eftersom GraalVM native-image kan använda mycket minne.
 
+AI-läget i `botservice` är byggt för att vara runtime-styrt även i native image. Det betyder att ändring av `BOT_AI_ENABLED`, AI-modell, temperatur eller API-nyckel normalt bara kräver Kubernetes rollout av `botservice` och ibland `bff`, inte ny native-build. Ändringar i Java-kod, promptklasser, dependencies, `application.properties` eller frontendfiler kräver däremot ny image för berörd modul.
+
 ### Skala ner Kubernetes innan native-build
 
 Om appen redan körs i Kubernetes:
@@ -743,6 +803,45 @@ Kommandon:
 kubectl logs deployment/messageservice -n labb2 --since=10m
 kubectl logs deployment/botservice -n labb2 --since=10m
 ```
+
+### AI-läget syns i UI men botten svarar regelbaserat
+
+Kontrollera först att BFF ser AI-läget:
+
+```powershell
+Invoke-RestMethod http://labb2.localhost/api/config
+```
+
+Kontrollera sedan att `botservice` startade med OpenRouter-generatorn:
+
+```powershell
+kubectl logs deployment/botservice -n labb2 --since=5m
+```
+
+Du vill se:
+
+```text
+AI bot response generation is enabled. Using OpenRouter model ...
+```
+
+Om loggen i stället visar att AI är av, patcha ConfigMap och starta om:
+
+```powershell
+$patch = @{
+  data = @{
+    BOT_AI_ENABLED = "true"
+  }
+} | ConvertTo-Json -Compress
+
+kubectl patch configmap bot-ai-config `
+  -n labb2 `
+  --type merge `
+  -p $patch
+
+kubectl rollout restart deployment/botservice deployment/bff -n labb2
+```
+
+Om AI är på men svaret ändå blir regelbaserat kan OpenRouter-anropet ha misslyckats. Då faller botten tillbaka till `RuleBasedBotReplyGenerator`. Kontrollera `botservice`-loggen efter varningar från `OpenRouterBotResponseGenerator` och verifiera att `bot-ai-secret` finns.
 
 ### Native-build får Java-versionfel
 

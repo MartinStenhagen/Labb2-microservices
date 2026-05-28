@@ -11,11 +11,16 @@ public class RestClientConfig {
     private static final String INTERNAL_API_KEY_HEADER = "X-Internal-Api-Key";
 
     @Bean
+    public RestClient.Builder restClientBuilder() {
+        return RestClient.builder();
+    }
+
+    @Bean
     public RestClient messageServiceRestClient(
             @Value("${message.service.url}") String messageServiceUrl,
             @Value("${internal.api-key}") String internalApiKey
     ) {
-        return RestClient.builder()
+        return restClientBuilder()
                 .baseUrl(messageServiceUrl)
                 .defaultHeader(INTERNAL_API_KEY_HEADER, internalApiKey)
                 .build();
