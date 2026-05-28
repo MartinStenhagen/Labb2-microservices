@@ -20,3 +20,7 @@ Thumbs.db
 .local/
 *.jwk
 *ec-key*.json
+secrets/*
+!secrets/README.md
+!secrets/*.example
+k8s/*secret*.local.yaml

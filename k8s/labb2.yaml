@@ -4,19 +4,6 @@ metadata:
   name: labb2
 ---
 apiVersion: v1
-kind: Secret
-metadata:
-  name: labb2-secret
-  namespace: labb2
-type: Opaque
-stringData:
-  mysql-root-password: root
-  rabbitmq-username: guest
-  rabbitmq-password: guest
-  internal-api-key: labb2-dev-internal-key
-  auth-oauth-client-secret: secret
----
-apiVersion: v1
 kind: ConfigMap
 metadata:
   name: bot-ai-config
