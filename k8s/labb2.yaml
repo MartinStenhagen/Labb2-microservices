@@ -122,7 +122,6 @@ metadata:
   namespace: labb2
 spec:
   backoffLimit: 12
-  ttlSecondsAfterFinished: 3600
   template:
     metadata:
       labels:
@@ -150,96 +149,7 @@ spec:
                 sleep 2
               done
               mysql -h mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "CREATE DATABASE IF NOT EXISTS users_db; CREATE DATABASE IF NOT EXISTS messages_db; CREATE DATABASE IF NOT EXISTS auth_db;"
-              mysql -h mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" users_db <<'SQL'
-              CREATE TABLE IF NOT EXISTS users (
-                  id BIGINT NOT NULL AUTO_INCREMENT,
-                  username VARCHAR(255) NOT NULL,
-                  display_name VARCHAR(255),
-                  PRIMARY KEY (id),
-                  CONSTRAINT uk_users_username UNIQUE (username)
-              );
-              SQL
-              mysql -h mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" auth_db <<'SQL'
-              CREATE TABLE IF NOT EXISTS auth_users (
-                  id BIGINT NOT NULL AUTO_INCREMENT,
-                  username VARCHAR(255) NOT NULL,
-                  password_hash VARCHAR(255) NOT NULL,
-                  user_id BIGINT NOT NULL,
-                  PRIMARY KEY (id),
-                  CONSTRAINT uk_auth_users_username UNIQUE (username)
-              );
-              SQL
-              mysql -h mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" messages_db <<'SQL'
-              CREATE TABLE IF NOT EXISTS messages (
-                  id BIGINT NOT NULL AUTO_INCREMENT,
-                  sender_user_id BIGINT,
-                  sender_username VARCHAR(255),
-                  room VARCHAR(255) NOT NULL DEFAULT 'general',
-                  bot_personality VARCHAR(32) NOT NULL DEFAULT 'neutral',
-                  content TEXT,
-                  source_event_id BINARY(16),
-                  created_at DATETIME(6),
-                  PRIMARY KEY (id),
-                  CONSTRAINT uk_messages_source_event_id UNIQUE (source_event_id)
-              );
-
-              CREATE TABLE IF NOT EXISTS outbox_events (
-                  id BIGINT NOT NULL AUTO_INCREMENT,
-                  event_id BINARY(16),
-                  aggregate_type VARCHAR(255),
-                  aggregate_id BIGINT,
-                  type VARCHAR(255),
-                  payload TEXT,
-                  created_at DATETIME(6),
-                  publish_attempts INT NOT NULL DEFAULT 0,
-                  last_attempt_at DATETIME(6),
-                  processed_at DATETIME(6),
-                  failed_at DATETIME(6),
-                  last_error TEXT,
-                  status ENUM('PENDING', 'PUBLISHING', 'PROCESSED', 'FAILED'),
-                  PRIMARY KEY (id)
-              );
-
-              SET @sql = IF(
-                  (SELECT COUNT(*) FROM information_schema.columns
-                   WHERE table_schema = DATABASE() AND table_name = 'messages' AND column_name = 'bot_personality') = 0,
-                  'ALTER TABLE messages ADD COLUMN bot_personality VARCHAR(32) NOT NULL DEFAULT ''neutral''',
-                  'SELECT 1'
-              );
-              PREPARE stmt FROM @sql;
-              EXECUTE stmt;
-              DEALLOCATE PREPARE stmt;
-
-              SET @sql = IF(
-                  (SELECT COUNT(*) FROM information_schema.statistics
-                   WHERE table_schema = DATABASE() AND table_name = 'messages' AND index_name = 'idx_messages_room_created_at') = 0,
-                  'CREATE INDEX idx_messages_room_created_at ON messages (room, created_at)',
-                  'SELECT 1'
-              );
-              PREPARE stmt FROM @sql;
-              EXECUTE stmt;
-              DEALLOCATE PREPARE stmt;
-
-              SET @sql = IF(
-                  (SELECT COUNT(*) FROM information_schema.statistics
-                   WHERE table_schema = DATABASE() AND table_name = 'outbox_events' AND index_name = 'idx_outbox_events_status_created_at') = 0,
-                  'CREATE INDEX idx_outbox_events_status_created_at ON outbox_events (status, created_at)',
-                  'SELECT 1'
-              );
-              PREPARE stmt FROM @sql;
-              EXECUTE stmt;
-              DEALLOCATE PREPARE stmt;
-
-              SET @sql = IF(
-                  (SELECT COUNT(*) FROM information_schema.statistics
-                   WHERE table_schema = DATABASE() AND table_name = 'outbox_events' AND index_name = 'idx_outbox_events_status_last_attempt_at') = 0,
-                  'CREATE INDEX idx_outbox_events_status_last_attempt_at ON outbox_events (status, last_attempt_at)',
-                  'SELECT 1'
-              );
-              PREPARE stmt FROM @sql;
-              EXECUTE stmt;
-              DEALLOCATE PREPARE stmt;
-              SQL
+              echo "Databases users_db, messages_db and auth_db are ready. Flyway creates and migrates the tables."
           resources:
             requests:
               cpu: 50m
