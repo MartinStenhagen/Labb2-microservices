@@ -45,6 +45,12 @@ public class UserService {
 
     public UserResponse updateUser(Long id, UpdateUserRequest request) {
         AppUser user = findUser(id);
+
+        if (!user.getUsername().equals(request.username())
+                && userRepository.existsByUsernameAndIdNot(request.username(), id)) {
+            throw new ResponseStatusException(CONFLICT, "Username already exists");
+        }
+
         user.setUsername(request.username());
         user.setDisplayName(request.displayName());
 

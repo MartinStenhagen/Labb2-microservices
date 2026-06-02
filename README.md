@@ -124,7 +124,7 @@ MySQL används med tre databaser:
 
 Databasscheman hanteras med Flyway i respektive modul. Hibernate körs med `ddl-auto=validate`, vilket betyder att Spring inte automatiskt skapar eller ändrar tabeller vid start. Om tabeller saknas ska Flyway-migrationerna eller Kubernetes-initjobbet skapa dem.
 
-I Kubernetes finns dessutom ett `mysql-init-databases` Job i `k8s/labb2.yaml`. Det skapar databaserna och de viktigaste tabellerna idempotent så att native-tjänsterna kan starta även i ett tomt lokalt kluster.
+I Kubernetes finns dessutom ett `mysql-init-databases` Job i `k8s/labb2.yaml`. Det skapar databaserna idempotent så att Flyway i respektive tjänst kan skapa och migrera tabellerna även i ett tomt lokalt kluster.
 
 ## Säkerhet
 

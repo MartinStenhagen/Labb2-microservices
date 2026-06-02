@@ -77,6 +77,7 @@ class UserServiceTest {
     void updateUserChangesExistingUser() {
         AppUser existingUser = new AppUser("martin", "Martin");
         when(userRepository.findById(1L)).thenReturn(Optional.of(existingUser));
+        when(userRepository.existsByUsernameAndIdNot("martin2", 1L)).thenReturn(false);
         when(userRepository.save(existingUser)).thenReturn(existingUser);
 
         UserResponse response = userService.updateUser(
@@ -87,6 +88,22 @@ class UserServiceTest {
         assertThat(response.username()).isEqualTo("martin2");
         assertThat(response.displayName()).isEqualTo("Martin S");
         verify(userRepository).save(existingUser);
+    }
+
+    @Test
+    void updateUserRejectsUsernameUsedByAnotherUser() {
+        AppUser existingUser = new AppUser("martin", "Martin");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(existingUser));
+        when(userRepository.existsByUsernameAndIdNot("sara", 1L)).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.updateUser(
+                1L,
+                new UpdateUserRequest("sara", "Martin S")
+        ))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Username already exists");
+
+        verify(userRepository, never()).save(existingUser);
     }
 
     @Test
